@@ -47,17 +47,28 @@ struct offscreenSize
     unsigned width;
 };
 
+// MuJoCo 3.x compatibility note: cameraInterface and related fields assume MuJoCo 3.3.1+ API.
+// Fields such as m->ncam, m->name_camadr, and m->names are used for camera enumeration and naming.
+// If upgrading MuJoCo, verify these fields remain compatible.
 class cameraInterface
 {
     public:
+    // Number of cameras in the model (from mjModel->ncam)
     unsigned count = 0;
+    // Camera names (from mjModel->names + mjModel->name_camadr[])
     std::vector<std::string> names;
+    // Offscreen rendering size for each camera (populated from offscreen buffer size)
     std::vector<offscreenSize> size;
+    // Address offsets for RGB data in the combined buffer (per camera)
     std::vector<unsigned long> rgbAddr;
+    // Address offsets for depth data in the combined buffer (per camera)
     std::vector<unsigned long> depthAddr;
+    // Total length of RGB buffer (sum of all cameras)
     unsigned long rgbLength;
+    // Total length of depth buffer (sum of all cameras)
     unsigned long depthLength;
 
+    // Returns a hash of the interface for change detection
     std::size_t hash();
 };
 
@@ -162,8 +173,9 @@ class MujocoGUI
     float* depth = nullptr;
 
     // camera spec
-    mjtCamera camType;
-    int camId;
+    // MuJoCo 3.x compatibility: camType and camId are set for offscreen rendering (mjCAMERA_FIXED assumed)
+    mjtCamera camType; // Camera type (e.g., mjCAMERA_FIXED)
+    int camId;         // Camera index in the model
 
     std::atomic<bool> exited = false;
     std::mutex modelInstancesLock;
