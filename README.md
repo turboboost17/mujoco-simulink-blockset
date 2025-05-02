@@ -120,6 +120,21 @@ In case you face graphics related issues, please try updating GLFW following the
 
 ## Bugs/Workarounds
 
+### MATLAB R2023b MSVC Runtime Issue (Windows)
+
+Some users have reported crashes (often involving `MSVCP140.dll` in the stack trace) when using this blockset with MATLAB R2023b, particularly after MSVC 2022 version 17.6.6. This seems related to an incompatibility between the MSVC runtime libraries shipped with MATLAB R2023b and MuJoCo 3.x.
+
+**Workaround:** Replace the following DLLs in your MATLAB installation's `bin/win64` directory (e.g., `C:\Program Files\Matlab\R2023b\bin\win64`) with the corresponding versions from a local Microsoft Visual Studio 2022 (Professional or Community) installation (usually found under `C:\Program Files\Microsoft Visual Studio\2022\<Edition>\VC\Redist\MSVC\<version>\x64\Microsoft.VC143.CRT`):
+*   `msvcp140.dll`
+*   `msvcp140_1.dll`
+*   `msvcp140_2.dll`
+*   `msvcp140_atomic_wait.dll`
+*   `msvcp140_codecvt_ids.dll`
+*   `vcruntime140.dll` (Also recommended to replace)
+*   `vcruntime140_1.dll` (Also recommended to replace)
+
+**Disclaimer:** Modifying your MATLAB installation files is done at your own risk. Ensure you back up the original files before replacing them. This workaround might need adjustment depending on specific VS 2022 and MATLAB versions.
+
 ### Rebuild GLFW From Source 
 
 In case MATLAB crashes while running getting started model and you see the following lines in stack trace,
