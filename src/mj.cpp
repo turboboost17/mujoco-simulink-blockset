@@ -24,11 +24,21 @@ using std::shared_ptr;
 // MODEL --------------------------------------------------------------------------
 int MujocoModelInstance::initMdl(std::string file, bool shouldInitCam, bool shouldGetCami)
 {
-    char err[1000] = "err";
+    char err[1000] = "Load XML Error: Unknown"; // Initialize error buffer with a default message
+    std::cout << "[mj_loadXML] Attempting to load: " << file << std::endl; // Debug print
     m = mj_loadXML(file.c_str(), 0, err, 1000);
-    if (!m) 
+    std::cout << "[mj_loadXML] Result pointer m = " << m << std::endl; // Debug print
+
+    if (!m)
     {
+        // Ensure the error string is null-terminated even if mj_loadXML failed unexpectedly
+        err[999] = '\0'; 
+        std::cerr << "[mj_loadXML] FAILED. Error reported by mj_loadXML: '" << err << "'" << std::endl; // Print error message
         return -1;
+    }
+    else
+    {
+        std::cout << "[mj_loadXML] SUCCESS." << std::endl; // Debug print
     }
 
     ci = getControlInterface();
@@ -155,11 +165,28 @@ cameraInterface MujocoModelInstance::getCameraInterface()
     // CALL THIS FUNCTION ONLY FROM MAIN THREAD (MAC) OR THE THREAD THAT HANDLES THE REST OF RENDERING GLFW OPENGL WORK
     // Run init and initCameras before running this
     cameraInterface camiTemp;
-    camiTemp.count = offscreenCam.size();
+    camiTemp.count = static_cast<unsigned>(offscreenCam.size());
+
+    // Validate camera count matches model
+    if (static_cast<unsigned>(m->ncam) != camiTemp.count) {
+        std::cerr << "[MuJoCo cameraInterface] Warning: m->ncam (" << m->ncam << ") != offscreenCam.size() (" << camiTemp.count << ")\n";
+    }
+
+    // Defensive: check pointers before use
+    if (!m->name_camadr || !m->names) {
+        std::cerr << "[MuJoCo cameraInterface] Error: m->name_camadr or m->names is null.\n";
+        camiTemp.count = 0;
+        return camiTemp;
+    }
 
     std::vector<std::string> names;
     for(unsigned index=0; index<camiTemp.count; index++)
     {
+        // Defensive: check index bounds
+        if (index >= static_cast<unsigned>(m->ncam)) {
+            std::cerr << "[MuJoCo cameraInterface] Error: Camera index out of bounds: " << index << ".\n";
+            break;
+        }
         char *namePointer = m->names + m->name_camadr[index];
         std::string str(namePointer);
         names.push_back(str);
@@ -172,9 +199,8 @@ cameraInterface MujocoModelInstance::getCameraInterface()
     {
         offscreenSize offSize;
         offscreenCam[index]->initInThread(&offSize, true);
-        // TODO handle error
+        // TODO: handle error from initInThread
         camiTemp.size.push_back(offSize);
-        
         camiTemp.rgbAddr.push_back(rgbAddr);
         camiTemp.depthAddr.push_back(depthAddr);
         rgbAddr += 3*offSize.height*offSize.width; // location of next rgb or length of rgb stored so far
@@ -182,7 +208,6 @@ cameraInterface MujocoModelInstance::getCameraInterface()
     }
     camiTemp.rgbLength = rgbAddr;
     camiTemp.depthLength = depthAddr;
-    
     return camiTemp;
 }
 

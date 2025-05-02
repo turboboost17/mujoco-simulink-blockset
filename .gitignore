@@ -20,14 +20,21 @@ references/
 *.dylib
 *.dll
 *.so
-*.mexw64
-*.mexa64
-*.mexi64
-*.pdb
+
+# Default files to ignore from MATLAB
+*.asv
+*.autosave
+*.bak
+# *.mex*  <- Keep this commented or remove if you want to ignore all mex types by default
+# *.mexw64  <- Removed to track Windows MEX files
+# *.mexa64
+# *.mexi64
+# *.pdb     <- Removed to track PDB debug symbols
+
 BF_RESULT/
 temp/
 model_report.htmx
-*.pdb
+
 CP_result/
 BP_result/
 *.r2021b
