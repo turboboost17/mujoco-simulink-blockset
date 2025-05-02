@@ -85,7 +85,7 @@ class MexFunction: public matlab::mex::Function
 
         // displayOnMATLAB(stream);   
 
-        glfwTerminate();
+        // glfwTerminate(); // DO NOT terminate GLFW here. Let the main S-function manage lifecycle.
     }
 
     std::string sensorBusGen(sensorInterface si)
