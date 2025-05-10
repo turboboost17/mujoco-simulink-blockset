@@ -53,6 +53,12 @@
             "arch": "win64",
             "version": "3.3.1",
             "downloadLink": "https://github.com/google-deepmind/mujoco/releases/download/3.3.1/mujoco-3.3.1-windows-x86_64.zip"
+        },
+        {
+            "name": "mujoco",
+            "arch": "win64",
+            "version": "3.3.2",
+            "downloadLink": "https://github.com/google-deepmind/mujoco/releases/download/3.3.2/mujoco-3.3.2-windows-x86_64.zip"
         }    
     ]
 }

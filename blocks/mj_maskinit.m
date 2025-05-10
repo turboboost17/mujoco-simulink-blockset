@@ -116,6 +116,29 @@ end
 set_param(mjBlk, 'znear', num2str(znear));
 set_param(mjBlk, 'zfar', num2str(zfar));
 
+%% Segmentation
+segmentationOut1Path = [mjBlk, '/segment'];
+try
+    segmentationFieldnames = fieldnames(Simulink.Bus.createMATLABStruct(segmentationBus));
+    %fails when it is an empty bus TODO. remove try catch
+    mo.getDialogControl('segmentationBusText').Prompt = ['Segmentation Bus Type: ', segmentationBus];
+catch
+    segmentationFieldnames = [];
+    mo.getDialogControl('segmentationBusText').Prompt = ['Segmentation Bus Type: ', 'NA'];
+end
+segmentationOutputOption = strcmp(get_param(mjBlk, 'segmentationOutOption'), 'on');
+
+if isempty(segmentationFieldnames) || ~segmentationOutputOption
+    replacer(mjBlk, 'segment', 'simulink/Sinks/Terminator')
+else
+    outportName = 'segment';
+    replacer(mjBlk, outportName, 'simulink/Sinks/Out1');
+    set_param([mjBlk, '/', outportName], "Port", num2str(portIndex));
+    portIndex = portIndex+1;
+end
+
+
+
 %% Sample Time
 sampleTime = mj_sampletime(xmlFile);
 set_param(mjBlk, 'sampleTime', num2str(sampleTime));

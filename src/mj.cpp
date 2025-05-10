@@ -24,21 +24,11 @@ using std::shared_ptr;
 // MODEL --------------------------------------------------------------------------
 int MujocoModelInstance::initMdl(std::string file, bool shouldInitCam, bool shouldGetCami)
 {
-    char err[1000] = "Load XML Error: Unknown"; // Initialize error buffer with a default message
-    std::cout << "[mj_loadXML] Attempting to load: " << file << std::endl; // Debug print
+    char err[1000] = "err";
     m = mj_loadXML(file.c_str(), 0, err, 1000);
-    std::cout << "[mj_loadXML] Result pointer m = " << m << std::endl; // Debug print
-
-    if (!m)
+    if (!m) 
     {
-        // Ensure the error string is null-terminated even if mj_loadXML failed unexpectedly
-        err[999] = '\0'; 
-        std::cerr << "[mj_loadXML] FAILED. Error reported by mj_loadXML: '" << err << "'" << std::endl; // Print error message
         return -1;
-    }
-    else
-    {
-        std::cout << "[mj_loadXML] SUCCESS." << std::endl; // Debug print
     }
 
     ci = getControlInterface();
@@ -195,6 +185,8 @@ cameraInterface MujocoModelInstance::getCameraInterface()
 
     unsigned long rgbAddr = 0;
     unsigned long depthAddr = 0;
+    unsigned long segAddr = 0;
+    
     for(int index=0; index<camiTemp.count; index++)
     {
         offscreenSize offSize;
@@ -203,11 +195,14 @@ cameraInterface MujocoModelInstance::getCameraInterface()
         camiTemp.size.push_back(offSize);
         camiTemp.rgbAddr.push_back(rgbAddr);
         camiTemp.depthAddr.push_back(depthAddr);
+        camiTemp.segAddr.push_back(segAddr);
         rgbAddr += 3*offSize.height*offSize.width; // location of next rgb or length of rgb stored so far
         depthAddr += offSize.height*offSize.width;
+        segAddr += 3*offSize.height*offSize.width; // segmentation uses 3 channels (RGB) like the regular RGB buffer
     }
     camiTemp.rgbLength = rgbAddr;
     camiTemp.depthLength = depthAddr;
+    camiTemp.segLength = segAddr;
     return camiTemp;
 }
 
@@ -274,6 +269,21 @@ void MujocoModelInstance::getCameraDepth(float *buffer)
         {
             std::lock_guard<std::mutex> mutLock(offscreenCam[index]->camBufferMutex);
             memcpy(buffer+addr, offscreenCam[index]->depth, size*sizeof(float));
+        }
+        addr += size;
+    }
+}
+
+void MujocoModelInstance::getCameraSegmentation(uint8_t *buffer)
+{
+    std::lock_guard<std::mutex> mutLock(camiMutex);
+    unsigned long addr = 0;
+    for(int index=0; index<cami.count; index++ )
+    {
+        unsigned long size = 3*cami.size[index].height*cami.size[index].width;
+        {
+            std::lock_guard<std::mutex> mutLock(offscreenCam[index]->camBufferMutex);
+            memcpy(buffer+addr, offscreenCam[index]->segmentation, size*sizeof(uint8_t));
         }
         addr += size;
     }
@@ -408,11 +418,13 @@ guiErrCodes MujocoGUI::initInThread(offscreenSize *offSize, bool stopAtOffScreen
         // allocate rgb and depth buffers
         rgb = (unsigned char*) MALLOC(3*W*H, 8);
         depth = (float*) MALLOC(sizeof(float)*W*H, 8);
+        segmentation = (unsigned char*) MALLOC(3*W*H, 8);
 
-        if( !rgb || !depth )
+        if( !rgb || !depth || !segmentation )
         {
             if(rgb) FREE(rgb);
             if(depth) FREE(depth);
+            if(segmentation) FREE(segmentation);
             mjv_freeScene(&scn);
             mjr_freeContext(&con);
             glfwDestroyWindow(window);
@@ -458,10 +470,12 @@ int MujocoGUI::loopInThread()
                     // first model is arbitrarily chosen as the main one.
                 }
                 // modelInstancesLock.unlock();
-                mjr_render(viewport, &scn, &con);
                 
                 if(target == MJ_WINDOW)
                 {
+                    // Standard window rendering
+                    mjr_render(viewport, &scn, &con);
+                    
                     // this is a blocking call due to vsync (Update will be done in sync with monitor refresh rate. Doing faster than that can result in screen tearing effects)
                     glfwSwapBuffers(window);
                     glfwPollEvents();
@@ -469,7 +483,36 @@ int MujocoGUI::loopInThread()
                 else
                 {   
                     std::lock_guard<std::mutex> mutLock(camBufferMutex);
+                    
+                    // Standard RGB and depth rendering
+                    mjr_render(viewport, &scn, &con);
                     mjr_readPixels(rgb, depth, viewport, &con);
+                    
+                    // Segmentation rendering
+                    // Save original flags state
+                    int originalFlags[mjNRNDFLAG] = {0};
+                    for (int i = 0; i < mjNRNDFLAG; i++) {
+                        originalFlags[i] = scn.flags[i];
+                    }
+                    
+                    // Clear all rendering flags
+                    for (int i = 0; i < mjNRNDFLAG; i++) {
+                        scn.flags[i] = 0;
+                    }
+                    
+                    // Enable only ID colors for segmentation
+                    scn.flags[mjRND_IDCOLOR] = 1;
+                    
+                    // Render segmentation view
+                    mjr_render(viewport, &scn, &con);
+                    
+                    // Read pixels (rgb buffer only, no depth)
+                    mjr_readPixels(segmentation, NULL, viewport, &con);
+                    
+                    // Restore original rendering flags
+                    for (int i = 0; i < mjNRNDFLAG; i++) {
+                        scn.flags[i] = originalFlags[i];
+                    }
                 }
                 
                 glfwMakeContextCurrent(NULL);
@@ -490,6 +533,7 @@ void MujocoGUI::releaseInThread()
         std::lock_guard<std::recursive_mutex> glLock (glfwMutex);
         if(rgb) FREE(rgb);
         if(depth) FREE(depth);
+        if(segmentation) FREE(segmentation);
 
         glfwMakeContextCurrent(window);
         mjv_freeScene(&scn);

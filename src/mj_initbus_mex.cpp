@@ -78,14 +78,18 @@ class MexFunction: public matlab::mex::Function
         // depth bus
         std::string depthBusStr = depthBusGen(cami);
         outputs[outputIndex++] = af.createCharArray(depthBusStr);
+        
+        // segmentation bus
+        std::string segmentationBusStr = segmentationBusGen(cami);
+        outputs[outputIndex++] = af.createCharArray(segmentationBusStr);
 
         // data length output
-        ArrayDimensions lengthOutputdim{4, 1};
-        outputs[outputIndex++] = af.createArray<uint32_t>(lengthOutputdim, {ci.count, si.scalarCount, cami.rgbLength, cami.depthLength});
+        ArrayDimensions lengthOutputdim{5, 1};
+        outputs[outputIndex++] = af.createArray<uint32_t>(lengthOutputdim, {ci.count, si.scalarCount, cami.rgbLength, cami.depthLength, cami.segLength});
 
         // displayOnMATLAB(stream);   
 
-        // glfwTerminate(); // DO NOT terminate GLFW here. Let the main S-function manage lifecycle.
+        glfwTerminate();
     }
 
     std::string sensorBusGen(sensorInterface si)
@@ -170,6 +174,28 @@ class MexFunction: public matlab::mex::Function
 
         // name the bus with a identifier unique to block outputs/inputs
         std::string busStr="mj_bus_depth_";
+        busStr += std::to_string(cami.hash());
+
+        return busGen(busStr, busStruct);
+    }
+
+    std::string segmentationBusGen(cameraInterface cami)
+    {
+        using namespace matlab::data;
+        using namespace matlab::mex;
+        using namespace matlab::engine;
+
+        // struct generation
+        StructArray busStruct = af.createStructArray({1}, cami.names);
+        for(unsigned int index=0; index<cami.count; index++)
+        {
+            std::string name = cami.names[index];
+            ArrayDimensions outputDim{cami.size[index].height, cami.size[index].width, 3};
+            busStruct[0][name] = af.createArray<uint8_t>(outputDim);
+        }
+
+        // name the bus with a identifier unique to block outputs/inputs
+        std::string busStr="mj_bus_segmentation_";
         busStr += std::to_string(cami.hash());
 
         return busGen(busStr, busStruct);
