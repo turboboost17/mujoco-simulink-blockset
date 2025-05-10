@@ -44,6 +44,7 @@ typedef enum {
     SENSOR_PORT_INDEX = 0,
     RGB_PORT_INDEX,
     DEPTH_PORT_INDEX,
+    SEGMENTATION_PORT_INDEX,
     OUTPORT_COUNT
 } outportIndex;
 
@@ -292,8 +293,10 @@ static void mdlInitializeSizes(SimStruct *S)
     // camera output
     ssSetOutputPortWidth(S, RGB_PORT_INDEX, getIntParam(S, RGB_LENGTH_INDEX) + 1);
     ssSetOutputPortWidth(S, DEPTH_PORT_INDEX, getIntParam(S, DEPTH_LENGTH_INDEX) + 1);
+    ssSetOutputPortWidth(S, SEGMENTATION_PORT_INDEX, getIntParam(S, RGB_LENGTH_INDEX) + 1); // Use the same size as RGB since segmentation is an RGB image
     ssSetOutputPortDataType(S, RGB_PORT_INDEX, SS_UINT8);
     ssSetOutputPortDataType(S, DEPTH_PORT_INDEX, SS_SINGLE);
+    ssSetOutputPortDataType(S, SEGMENTATION_PORT_INDEX, SS_UINT8);
 
     // INITIALIZE WORK VECTORS
     ssSetNumIWork(S, (int)IWORK_COUNT);
@@ -471,6 +474,8 @@ void renderingThreadFcn()
 
         unsigned long rgbAddr = 0;
         unsigned long depthAddr = 0;
+        unsigned long segAddr = 0;
+        
         for(int camIndex = 0; camIndex<camiTemp.count; camIndex++)
         {
             offscreenSize offSize;
@@ -487,11 +492,15 @@ void renderingThreadFcn()
             camiTemp.size.push_back(offSize);
             camiTemp.rgbAddr.push_back(rgbAddr);
             camiTemp.depthAddr.push_back(depthAddr);
+            camiTemp.segAddr.push_back(segAddr);
+            
             rgbAddr += 3*offSize.height*offSize.width; // location of next rgb or length of rgb stored so far
             depthAddr += offSize.height*offSize.width;
+            segAddr += 3*offSize.height*offSize.width; // segmentation uses 3 channels (RGB) like the regular RGB buffer
         }
         camiTemp.rgbLength = rgbAddr;
         camiTemp.depthLength = depthAddr;
+        camiTemp.segLength = segAddr;
     }
 
     // INIT GUI windows
@@ -611,11 +620,13 @@ static void mdlOutputs(SimStruct *S, int_T tid)
     // Copy camera to output
     uint8_T *rgbOut = (uint8_T *) ssGetOutputPortSignal(S, RGB_PORT_INDEX);
     real32_T *depthOut = (real32_T *) ssGetOutputPortSignal(S, DEPTH_PORT_INDEX);
+    uint8_T *segOut = (uint8_T *) ssGetOutputPortSignal(S, SEGMENTATION_PORT_INDEX);
     if(miTemp->isCameraDataNew)
     {
         //avoid unnecessary memcpy. copy only when there is new data. Rest of the time steps, old data will be output
         miTemp->getCameraRGB((uint8_t *) rgbOut);
         miTemp->getCameraDepth((float *) depthOut);
+        miTemp->getCameraSegmentation((uint8_t *) segOut);
         miTemp->isCameraDataNew = false;
     }
 }
