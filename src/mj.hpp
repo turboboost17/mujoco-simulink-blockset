@@ -63,10 +63,14 @@ class cameraInterface
     std::vector<unsigned long> rgbAddr;
     // Address offsets for depth data in the combined buffer (per camera)
     std::vector<unsigned long> depthAddr;
+    // Address offsets for segmentation data in the combined buffer (per camera)
+    std::vector<unsigned long> segAddr;
     // Total length of RGB buffer (sum of all cameras)
     unsigned long rgbLength;
     // Total length of depth buffer (sum of all cameras)
     unsigned long depthLength;
+    // Total length of segmentation buffer (sum of all cameras)
+    unsigned long segLength;
 
     // Returns a hash of the interface for change detection
     std::size_t hash();
@@ -125,6 +129,7 @@ public:
     std::vector<double> getSensor(unsigned index);
     size_t getCameraRGB(uint8_t *buffer);
     void getCameraDepth(float *buffer);
+    void getCameraSegmentation(uint8_t *buffer);
 };
 
 enum glTarget
@@ -171,6 +176,7 @@ class MujocoGUI
     std::mutex camBufferMutex;
     unsigned char* rgb = nullptr;
     float* depth = nullptr;
+    unsigned char* segmentation = nullptr;
 
     // camera spec
     // MuJoCo 3.x compatibility: camType and camId are set for offscreen rendering (mjCAMERA_FIXED assumed)
