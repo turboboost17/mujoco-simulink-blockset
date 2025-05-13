@@ -502,7 +502,7 @@ int MujocoGUI::loopInThread()
                     
                     // Enable only ID colors for segmentation
                     scn.flags[mjRND_IDCOLOR] = 1;
-                    
+                    scn.flags[mjRND_SEGMENT] = 1;
                     // Render segmentation view
                     mjr_render(viewport, &scn, &con);
                     
