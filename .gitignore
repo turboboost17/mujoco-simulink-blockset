@@ -25,11 +25,11 @@ references/
 *.asv
 *.autosave
 *.bak
-# *.mex*  <- Keep this commented or remove if you want to ignore all mex types by default
-# *.mexw64  <- Removed to track Windows MEX files
-# *.mexa64
-# *.mexi64
-# *.pdb     <- Removed to track PDB debug symbols
+*.mex*  <- Keep this commented or remove if you want to ignore all mex types by default
+*.mexw64  <- Removed to track Windows MEX files
+*.mexa64
+*.mexi64
+*.pdb     <- Removed to track PDB debug symbols
 
 BF_RESULT/
 temp/
