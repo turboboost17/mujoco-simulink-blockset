@@ -115,6 +115,9 @@ end
 [znear, zfar] = mj_depth_near_far(xmlFile);
 set_param(mjBlk, 'znear', num2str(znear));
 set_param(mjBlk, 'zfar', num2str(zfar));
+% Add znear and zfar to the base workspace
+assignin('base', 'znear', znear);
+assignin('base', 'zfar', zfar);
 
 %% Segmentation
 segmentationOut1Path = [mjBlk, '/segment'];
@@ -144,6 +147,27 @@ sampleTime = mj_sampletime(xmlFile);
 set_param(mjBlk, 'sampleTime', num2str(sampleTime));
 
 mo.getDialogControl('sampleTimeText').Prompt = ['Sample Time: ', num2str(sampleTime)];
+
+%% Camera Resolution Configuration
+% Check if custom resolution parameters exist and are valid
+try
+    resolutionMode = get_param(mjBlk, 'cameraResolutionMode');
+    if strcmp(resolutionMode, 'custom')
+        customWidth = str2double(get_param(mjBlk, 'customWidth'));
+        customHeight = str2double(get_param(mjBlk, 'customHeight'));
+        specificCameraIndex = str2double(get_param(mjBlk, 'specificCameraIndex'));
+        
+        if customWidth > 0 && customHeight > 0
+            if specificCameraIndex >= 0
+                fprintf('[MuJoCo] Camera %d resolution: %dx%d\n', specificCameraIndex, customWidth, customHeight);
+            else
+                fprintf('[MuJoCo] All cameras resolution: %dx%d\n', customWidth, customHeight);
+            end
+        end
+    end
+catch
+    % Parameters don't exist yet, will use default resolution
+end
 
 function replacer(blk, oldname, newtype)
     oldpath = [blk, '/', oldname];

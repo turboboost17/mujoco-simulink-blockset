@@ -30,6 +30,10 @@ typedef enum {
     CAMERA_SAMPLETIME_INDEX,
     BLOCK_SAMPLETIME_INDEX,
     ZOOM_LEVEL_INDEX,
+    KEYFRAME_PARAM_INDEX,
+    CUSTOM_WIDTH_INDEX,
+    CUSTOM_HEIGHT_INDEX,
+    SPECIFIC_CAMERA_INDEX,
     PARAM_COUNT
 } paramIdx;
 
@@ -347,11 +351,71 @@ static void mdlStart(SimStruct *S)
        return;
     }
 
+        // KEYFRAME INITIALIZATION
+    if (ssGetSFcnParamsCount(S) > KEYFRAME_PARAM_INDEX)
+    {
+        const mxArray *keyframeParam = ssGetSFcnParam(S, KEYFRAME_PARAM_INDEX);
+        char keyframeName[PARAM_STRING_LIMIT];
+        mxGetString(keyframeParam, keyframeName, PARAM_STRING_LIMIT - 1);
+        int keyframeIndex = -1;
+        mjModel *m = sd.mi[miIndex]->get_m();
+        mjData *d = sd.mi[miIndex]->get_d();
+        // Try to find keyframe by name
+        for (int i = 0; i < m->nkey; ++i)
+        {
+            const char *kfName = m->names + m->name_keyadr[i];
+            if (strcmp(kfName, keyframeName) == 0)
+            {
+                keyframeIndex = i;
+                break;
+            }
+        }
+        // If not found by name, try to interpret as index
+        if (keyframeIndex == -1)
+        {
+            char *endptr = nullptr;
+            long idx = strtol(keyframeName, &endptr, 10);
+            if (endptr != keyframeName && idx >= 0 && idx < m->nkey)
+            {
+                keyframeIndex = static_cast<int>(idx);
+            }
+        }
+        if (keyframeIndex >= 0 && keyframeIndex < m->nkey)
+        {
+            mj_resetDataKeyframe(m, d, keyframeIndex);
+        }
+    }
+    
     {
         // INIT CAMERA RENDER INTERVAL
         const mxArray *paramMx = ssGetSFcnParam(S, CAMERA_SAMPLETIME_INDEX);
         double cameraSampleTime = mxGetScalar(paramMx);
         sd.mi[miIndex]->cameraRenderInterval = cameraSampleTime;
+    }
+
+    {
+        // INIT CAMERA RESOLUTION
+        const mxArray *widthMx = ssGetSFcnParam(S, CUSTOM_WIDTH_INDEX);
+        const mxArray *heightMx = ssGetSFcnParam(S, CUSTOM_HEIGHT_INDEX);
+        const mxArray *cameraIndexMx = ssGetSFcnParam(S, SPECIFIC_CAMERA_INDEX);
+        
+        double customWidth = mxGetScalar(widthMx);
+        double customHeight = mxGetScalar(heightMx);
+        double specificCameraIndex = mxGetScalar(cameraIndexMx);
+        
+        // Set custom resolution if specified (> 0)
+        if (customWidth > 0 && customHeight > 0) {
+            if (specificCameraIndex >= 0) {
+                // Set specific camera resolution
+                sd.mi[miIndex]->setCameraResolution(static_cast<int>(specificCameraIndex), 
+                                                  static_cast<int>(customWidth), 
+                                                  static_cast<int>(customHeight));
+            } else {
+                // Set all cameras to same resolution
+                sd.mi[miIndex]->setAllCameraResolutions(static_cast<int>(customWidth), 
+                                                       static_cast<int>(customHeight));
+            }
+        }
     }
 
     ssSetIWorkValue(S, MI_IW_IDX, miIndex);

@@ -1,7 +1,8 @@
  <mujoco model="arm_with_cam">
-    <option timestep="0.005" iterations="50" solver="Newton" tolerance="1e-10"/>
+    <option timestep="0.1" iterations="50" solver="Newton" tolerance="1e-10"/>
     <visual>
         <rgba haze=".3 .3 .3 1"/>
+		<global offwidth="1920" offheight="1080" />
     </visual>
     <asset>
         <texture name="texplane" type="2d" builtin="checker" rgb1=".25 .25 .25" rgb2=".3 .3 .3" width="512" height="512" mark="cross" markrgb=".8 .8 .8"/>

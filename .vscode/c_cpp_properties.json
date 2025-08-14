@@ -1,0 +1,27 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/lib/win64/mujoco/include",
+                "${workspaceFolder}/lib/win64/glfw/glfw-3.3.7.bin.WIN64/include", // Add GLFW include path for IntelliSense
+                "C:/Program Files/Matlab/R2025a/extern/include",
+                "C:/Program Files/Matlab/R2025a/simulink/include",
+                "C:/Program Files/Matlab/R2025a/rtw/c/src",
+                "C:/Program Files/Matlab/R2025a/toolbox/rtw/accel/accelTemplateFolder"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "windowsSdkVersion": "10.0.20348.0",
+            "compilerPath": "cl.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-msvc-x64"
+        }
+    ],
+    "version": 4
+}
