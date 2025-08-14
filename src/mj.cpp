@@ -320,6 +320,29 @@ guiErrCodes MujocoGUI::init(MujocoModelInstance* mdlInstance, glTarget openglTar
     return NO_ERR;
 }
 
+void MujocoGUI::setCustomResolution(int width, int height)
+{
+    customWidth = width;
+    customHeight = height;
+}
+
+void MujocoModelInstance::setCameraResolution(int camIndex, int width, int height)
+{
+    if (camIndex < 0 || camIndex >= static_cast<int>(offscreenCam.size())) {
+        std::cerr << "[MuJoCo] Error: Camera index " << camIndex << " out of bounds (0-" << offscreenCam.size()-1 << ")\n";
+        return;
+    }
+    
+    offscreenCam[camIndex]->setCustomResolution(width, height);
+}
+
+void MujocoModelInstance::setAllCameraResolutions(int width, int height)
+{
+    for (int i = 0; i < static_cast<int>(offscreenCam.size()); i++) {
+        offscreenCam[i]->setCustomResolution(width, height);
+    }
+}
+
 guiErrCodes MujocoGUI::initInThread(offscreenSize *offSize, bool stopAtOffScreenSizeCalc)
 {
     std::lock_guard<std::recursive_mutex> glLock (glfwMutex); //opengl is not threadsafe or reentrant. lock until it is safe to unlock
@@ -400,12 +423,24 @@ guiErrCodes MujocoGUI::initInThread(offscreenSize *offSize, bool stopAtOffScreen
 
         // allocate memory for RGB and depth buffers.
         viewport = mjr_maxViewport(&con);
-        int W = viewport.width;
-        int H = viewport.height;
+        int W, H;
+        
+        // Use custom resolution if specified, otherwise use default viewport
+        if (customWidth > 0 && customHeight > 0) {
+            W = customWidth;
+            H = customHeight;
+            // Set custom viewport
+            viewport.width = W;
+            viewport.height = H;
+        } else {
+            W = viewport.width;
+            H = viewport.height;
+        }
+        
         if(offSize)
         {
-            offSize->height = viewport.height;
-            offSize->width  = viewport.width;
+            offSize->height = H;
+            offSize->width  = W;
             if(stopAtOffScreenSizeCalc)
             {
                 mjv_freeScene(&scn);

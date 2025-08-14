@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "xlocale": "cpp",
+        "random": "cpp",
+        "mutex": "cpp"
+    }
+}
