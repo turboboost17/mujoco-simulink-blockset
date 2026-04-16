@@ -41,8 +41,8 @@ function addRos2BuildArtifacts(buildInfo)
 % MuJoCo .so is bundled in the deployment archive.
 % GLFW is linked from the system package (libglfw3-dev) on the target.
 
-    % Determine target architecture from ROS2 device or default to x86_64
-    ros2Arch = getRos2TargetArch();
+    % Determine target architecture from device address / prefs
+    ros2Arch = getRos2TargetArch(buildInfo);
 
     if ~ispref('mujoco', 'ros2Paths')
         error('mujoco:postcodegen:noRos2Libs', ...
@@ -81,21 +81,48 @@ function addRos2BuildArtifacts(buildInfo)
     buildInfo.addLinkFlags('-lGL');
 end
 
-function arch = getRos2TargetArch()
+function arch = getRos2TargetArch(buildInfo)
 % Detect the ROS2 target device architecture.
 % Returns 'linux-aarch64' or 'linux-x86_64'.
-    arch = 'linux-x86_64';
+%
+% Detection order:
+%   1. Explicit mujoco pref 'ros2TargetArch' (user override)
+%   2. SSH to target device via CoderTargetData.BoardParameters.DeviceAddress
+%   3. Default: 'linux-x86_64' (WSL2/localhost) or 'linux-aarch64' (remote)
 
+    % 1. Check explicit override
+    if ispref('mujoco', 'ros2TargetArch')
+        arch = getpref('mujoco', 'ros2TargetArch');
+        return
+    end
+
+    % 2. Try to detect from target device address
+    arch = 'linux-x86_64'; % safe default (WSL2 / local Docker)
     try
-        % Attempt to detect from MATLAB ROS2 device preferences
-        if ispref('mujoco', 'ros2Archs')
-            archs = getpref('mujoco', 'ros2Archs');
-            % Default to aarch64 if available (common for Raspberry Pi / Jetson)
-            if any(strcmp(archs, 'linux-aarch64'))
-                arch = 'linux-aarch64';
-            end
+        modelName = buildInfo.ComponentName;
+        ctd = get_param(modelName, 'CoderTargetData');
+        deviceAddr = ctd.BoardParameters.DeviceAddress;
+
+        % Heuristic: if address is a WSL2 / localhost range, assume x86_64
+        isLocalTarget = startsWith(deviceAddr, '172.') || ...
+                        strcmp(deviceAddr, 'localhost') || ...
+                        strcmp(deviceAddr, '127.0.0.1');
+        if ~isLocalTarget
+            % Remote device: default to aarch64 (Pi/Jetson are most common)
+            arch = 'linux-aarch64';
         end
     catch
         % Fall through to default
+    end
+
+    % 3. Validate against available architectures
+    if ispref('mujoco', 'ros2Archs')
+        archs = getpref('mujoco', 'ros2Archs');
+        if ~any(strcmp(archs, arch))
+            % Requested arch not available; use whatever IS available
+            if ~isempty(archs)
+                arch = archs{1};
+            end
+        end
     end
 end
