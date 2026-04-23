@@ -1,0 +1,5 @@
+# Device profiles bundle SSH credentials (Password is stored verbatim
+# in ROS2DevicePrefs AND ConfigSet.CoderTargetData.BoardParameters).
+# Do NOT commit them. Users create their own locally with
+# mj_saveDeviceProfile.
+*.mat
