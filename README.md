@@ -2,8 +2,6 @@
 
 This repository provides a Simulink&reg; C-MEX S-Function block interface to the [MuJoCo&trade; physics engine](https://mujoco.org/).
 
-[![View <File Exchange Title> on File Exchange](https://www.mathworks.com/matlabcentral/images/matlab-file-exchange.svg)](https://www.mathworks.com/matlabcentral/fileexchange/128028-mujoco-simulink-blockset)
-
 Useful for,
 1. Robot simulation (mobile, biomimetics, grippers, robotic arm)
 2. Development of autonomous algorithms
