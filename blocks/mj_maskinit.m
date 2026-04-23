@@ -66,8 +66,8 @@ end
 
 %% RGB
 
-% blankBusPath = [mjBlk, '/rgbToBus/blankBus'];
-% rgbToBusPath = [mjBlk, '/rgbToBus'];
+blankBusPath = [mjBlk, '/rgbToBus/blankBus'];
+rgbToBusPath = [mjBlk, '/rgbToBus'];
 rgbOut1Path = [mjBlk, '/rgb'];
 try
     rgbFieldnames = fieldnames(Simulink.Bus.createMATLABStruct(rgbBus));
@@ -77,8 +77,8 @@ catch
     rgbFieldnames = [];
     mo.getDialogControl('rgbBusText').Prompt = ['RGB Bus Type: ', 'NA'];
 end
- 
-if isempty(rgbFieldnames)
+rgbOutputOption = strcmp(get_param(mjBlk, 'rgbOutOption'), 'on');
+if isempty(rgbFieldnames) || ~rgbOutputOption
     replacer(mjBlk, 'rgb', 'simulink/Sinks/Terminator')
 else
     outportName = 'rgb';
@@ -115,6 +115,10 @@ end
 [znear, zfar] = mj_depth_near_far(xmlFile);
 set_param(mjBlk, 'znear', num2str(znear));
 set_param(mjBlk, 'zfar', num2str(zfar));
+
+assignin('base','znear', znear);
+assignin('base','zfar', zfar);
+
 
 %% Segmentation
 segmentationOut1Path = [mjBlk, '/segment'];
