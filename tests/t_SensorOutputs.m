@@ -15,8 +15,9 @@ classdef t_SensorOutputs < matlab.unittest.TestCase
         end
 
         function sensorBusVariableSet(testCase)
-            % Loading a model with mujoco block should cause the base
-            % workspace sensorBus variable to be defined during mask init.
+            % After mask init, znear/zfar/sampleTime should be in base
+            % and the parser block's OutputBusName should reference a
+            % mj_bus_sensor_* bus object in base.
             modelPath = which('mj_gettingStarted.slx');
             testCase.assumeNotEmpty(modelPath);
             [~, modelName] = fileparts(modelPath);
@@ -25,8 +26,15 @@ classdef t_SensorOutputs < matlab.unittest.TestCase
 
             set_param(modelName, 'SimulationCommand', 'update');
 
-            inBase = evalin('base', 'exist(''sensorBus'',''var'')==1');
-            testCase.verifyTrue(inBase, 'sensorBus should be defined in base after mask init');
+            testCase.verifyTrue( ...
+                evalin('base', 'exist(''znear'',''var'')==1'), ...
+                'znear should be assigned in base workspace by mask init');
+            testCase.verifyTrue( ...
+                evalin('base', 'exist(''zfar'',''var'')==1'), ...
+                'zfar should be assigned in base workspace by mask init');
+            testCase.verifyTrue( ...
+                evalin('base', 'exist(''sampleTime'',''var'')==1'), ...
+                'sampleTime should be assigned in base workspace by mask init');
         end
     end
 end
