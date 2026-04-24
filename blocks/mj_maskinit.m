@@ -1,4 +1,33 @@
 % Copyright 2022-2023 The MathWorks, Inc.
+% 
+% MuJoCo Simulink Block Mask Initialization Script
+% 
+% Phase 2 Performance Optimization Parameters (requires mask update):
+%   - rgbOutOption:    'on'/'off' to enable/disable RGB rendering in S-Function
+%   - depthOutOption:  'on'/'off' to enable/disable Depth rendering in S-Function  
+%   - segmentationOutOption: 'on'/'off' to enable/disable Segmentation rendering
+%   - camWidth:        Custom camera width (0 = use MJCF offwidth)
+%   - camHeight:       Custom camera height (0 = use MJCF offheight)
+%
+% S-Function Parameter Order (paramIdx enum in mj_sfun.cpp):
+%   0: XML_PARAM_INDEX      - xmlFile path
+%   1: RENDERING_INDEX      - rendering type ('Local', 'Global', 'None')
+%   2: CONTROL_LENGTH_INDEX - controlLength
+%   3: SENSOR_LENGTH_INDEX  - sensorLength
+%   4: RGB_LENGTH_INDEX     - rgbLength
+%   5: DEPTH_LENGTH_INDEX   - depthLength
+%   6: VSYNC_INDEX          - vsyncOn (0/1)
+%   7: VISUAL_FPS_INDEX     - visualFPS
+%   8: CAMERA_SAMPLETIME_INDEX - cameraSampleTime
+%   9: BLOCK_SAMPLETIME_INDEX  - sampleTime
+%  10: ZOOM_LEVEL_INDEX     - zoomLevel
+%  11: KEYFRAME_PARAM_INDEX - keyframe
+%  12: RGB_OUT_OPTION_INDEX - rgbOutOption (0/1) [NEW]
+%  13: DEPTH_OUT_OPTION_INDEX - depthOutOption (0/1) [NEW]
+%  14: SEG_OUT_OPTION_INDEX - segmentationOutOption (0/1) [NEW]
+%  15: CAM_WIDTH_INDEX      - camWidth (0 = use MJCF) [NEW]
+%  16: CAM_HEIGHT_INDEX     - camHeight (0 = use MJCF) [NEW]
+%
 mjBlk = gcb;
 mo = get_param(mjBlk,'MaskObject');
 %% Sensor Bus Config
@@ -115,32 +144,6 @@ end
 [znear, zfar] = mj_depth_near_far(xmlFile);
 set_param(mjBlk, 'znear', num2str(znear));
 set_param(mjBlk, 'zfar', num2str(zfar));
-% Add znear and zfar to the base workspace
-assignin('base', 'znear', znear);
-assignin('base', 'zfar', zfar);
-
-%% Segmentation
-segmentationOut1Path = [mjBlk, '/segment'];
-try
-    segmentationFieldnames = fieldnames(Simulink.Bus.createMATLABStruct(segmentationBus));
-    %fails when it is an empty bus TODO. remove try catch
-    mo.getDialogControl('segmentationBusText').Prompt = ['Segmentation Bus Type: ', segmentationBus];
-catch
-    segmentationFieldnames = [];
-    mo.getDialogControl('segmentationBusText').Prompt = ['Segmentation Bus Type: ', 'NA'];
-end
-segmentationOutputOption = strcmp(get_param(mjBlk, 'segmentationOutOption'), 'on');
-
-if isempty(segmentationFieldnames) || ~segmentationOutputOption
-    replacer(mjBlk, 'segment', 'simulink/Sinks/Terminator')
-else
-    outportName = 'segment';
-    replacer(mjBlk, outportName, 'simulink/Sinks/Out1');
-    set_param([mjBlk, '/', outportName], "Port", num2str(portIndex));
-    portIndex = portIndex+1;
-end
-
-
 
 assignin('base','znear', znear);
 assignin('base','zfar', zfar);
@@ -171,30 +174,10 @@ end
 
 %% Sample Time
 sampleTime = mj_sampletime(xmlFile);
+assignin('base','sampleTime', sampleTime);
 set_param(mjBlk, 'sampleTime', num2str(sampleTime));
 
 mo.getDialogControl('sampleTimeText').Prompt = ['Sample Time: ', num2str(sampleTime)];
-
-%% Camera Resolution Configuration
-% Check if custom resolution parameters exist and are valid
-try
-    resolutionMode = get_param(mjBlk, 'cameraResolutionMode');
-    if strcmp(resolutionMode, 'custom')
-        customWidth = str2double(get_param(mjBlk, 'customWidth'));
-        customHeight = str2double(get_param(mjBlk, 'customHeight'));
-        specificCameraIndex = str2double(get_param(mjBlk, 'specificCameraIndex'));
-        
-        if customWidth > 0 && customHeight > 0
-            if specificCameraIndex >= 0
-                fprintf('[MuJoCo] Camera %d resolution: %dx%d\n', specificCameraIndex, customWidth, customHeight);
-            else
-                fprintf('[MuJoCo] All cameras resolution: %dx%d\n', customWidth, customHeight);
-            end
-        end
-    end
-catch
-    % Parameters don't exist yet, will use default resolution
-end
 
 function replacer(blk, oldname, newtype)
     oldpath = [blk, '/', oldname];
