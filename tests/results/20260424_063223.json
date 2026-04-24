@@ -1,0 +1,43 @@
+{
+  "timestamp": "20260424_063223",
+  "matlabRelease": "2025a",
+  "hostname": "AURORA111",
+  "passed": 3,
+  "failed": 1,
+  "incomplete": 0,
+  "duration_s": 75.544177200000007,
+  "tests": [
+    {
+      "name": "t_CommandInputs/controlPortHonorsMaskWhenBus",
+      "passed": true,
+      "failed": false,
+      "incomplete": false,
+      "duration": 28.2800495,
+      "details": ""
+    },
+    {
+      "name": "t_CommandInputs/modelCompiles",
+      "passed": true,
+      "failed": false,
+      "incomplete": false,
+      "duration": 37.6093429,
+      "details": ""
+    },
+    {
+      "name": "t_SensorOutputs/sensorParserExists",
+      "passed": true,
+      "failed": false,
+      "incomplete": false,
+      "duration": 0.56145930000000011,
+      "details": ""
+    },
+    {
+      "name": "t_SensorOutputs/sensorBusVariableSet",
+      "passed": false,
+      "failed": true,
+      "incomplete": false,
+      "duration": 9.0933255,
+      "details": ""
+    }
+  ]
+}

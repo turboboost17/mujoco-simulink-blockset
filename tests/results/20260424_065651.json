@@ -1,0 +1,75 @@
+{
+  "timestamp": "20260424_065651",
+  "matlabRelease": "2025a",
+  "hostname": "AURORA111",
+  "passed": 8,
+  "failed": 0,
+  "incomplete": 0,
+  "duration_s": 77.937619500000011,
+  "tests": [
+    {
+      "name": "t_RenderingModes/maskInitSucceedsForCombo(mode=Off)",
+      "passed": true,
+      "failed": false,
+      "incomplete": false,
+      "duration": 29.3382867,
+      "details": ""
+    },
+    {
+      "name": "t_RenderingModes/maskInitSucceedsForCombo(mode=RGB)",
+      "passed": true,
+      "failed": false,
+      "incomplete": false,
+      "duration": 4.2089674000000006,
+      "details": ""
+    },
+    {
+      "name": "t_RenderingModes/maskInitSucceedsForCombo(mode=Depth)",
+      "passed": true,
+      "failed": false,
+      "incomplete": false,
+      "duration": 3.6639251,
+      "details": ""
+    },
+    {
+      "name": "t_RenderingModes/maskInitSucceedsForCombo(mode=Seg)",
+      "passed": true,
+      "failed": false,
+      "incomplete": false,
+      "duration": 3.3744868,
+      "details": ""
+    },
+    {
+      "name": "t_RenderingModes/maskInitSucceedsForCombo(mode=RGBDepth)",
+      "passed": true,
+      "failed": false,
+      "incomplete": false,
+      "duration": 3.7364394,
+      "details": ""
+    },
+    {
+      "name": "t_RenderingModes/maskInitSucceedsForCombo(mode=DepthSeg)",
+      "passed": true,
+      "failed": false,
+      "incomplete": false,
+      "duration": 3.3269206999999996,
+      "details": ""
+    },
+    {
+      "name": "t_RenderingModes/maskInitSucceedsForCombo(mode=SegRGB)",
+      "passed": true,
+      "failed": false,
+      "incomplete": false,
+      "duration": 3.3462625,
+      "details": ""
+    },
+    {
+      "name": "t_RenderingModes/runFullSimAllThree",
+      "passed": true,
+      "failed": false,
+      "incomplete": false,
+      "duration": 26.942330899999998,
+      "details": ""
+    }
+  ]
+}

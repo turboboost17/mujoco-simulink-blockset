@@ -11,10 +11,10 @@ classdef t_SegmentationVideo < matlab.unittest.TestCase
             testCase.assumeEqual(exist('mj_segmentation_video','file'), 2, ...
                 'mj_segmentation_video not on path');
 
-            % 2 frames, 8x8
-            vid = zeros(8,8,3,2,'uint8');
+            % 2 frames, 64x64 (MPEG-4 requires larger-than-tiny dims)
+            vid = zeros(64,64,3,2,'uint8');
             vid(:,:,1,:) = 1;              % id=0 everywhere
-            vid(1:4,1:4,2,1) = 1; vid(1:4,1:4,1,1) = 0; % one patch id>=256
+            vid(1:32,1:32,2,1) = 1; vid(1:32,1:32,1,1) = 0; % one patch id>=256
             xml = which('dummy.xml');
             testCase.assumeNotEmpty(xml);
 
