@@ -1,19 +1,18 @@
-function [ segNames, types] = mj_segmentation_decoder(segImage, modelFile)
+function [segIDs, segNames, types] = mj_segmentation_decoder(segImage, modelFile)
 % MJ_SEGMENTATION_DECODER Decodes segmentation image to object IDs and names
 %
-% [segNames, types] = mj_segmentation_decoder(segImage, modelFile)
+% [segIDs, segNames, types] = mj_segmentation_decoder(segImage, modelFile)
 %
 % Inputs:
 %   segImage - Uint8 RGB image from MuJoCo's mjRND_IDCOLOR rendering
 %   modelFile - Path to the MuJoCo XML model file
 %
 % Outputs:
-%   
+%   segIDs   - Matrix of same size as segmentation height/width containing geom IDs
 %   segNames - Cell array of names corresponding to the unique IDs in segIDs
 %   types    - Cell array of types corresponding to the unique IDs in segIDs
 %
-
-% segIDs   - Matrix of same size as segmentation height/width containing geom IDs
+% Copyright 2023 The MathWorks, Inc.
 
 % Check inputs
 if ndims(segImage) ~= 3 || size(segImage, 3) ~= 3
@@ -39,27 +38,6 @@ uniqueIDs = uniqueIDs(uniqueIDs >= 0);
 % Initialize output arrays
 segNames = cell(length(uniqueIDs), 1);
 types = cell(length(uniqueIDs), 1);
-
-% Plot the segmentation image with random colors
-% This is useful for debugging and visualization   
-figure('Name', 'Segmentation Output', 'NumberTitle', 'off');
-% Assign random colors to each unique ID
-segImage = zeros(size(segImage), 'uint8');
-for i = 1:length(uniqueIDs)
-    % Generate a random color
-    color = uint8(randi([0, 255], 1, 3));
-    % Assign the color to all pixels with the current ID
-	temp = ones(size(segIDs), 'uint8');
-	temp( segIDs == uniqueIDs(i))= color(1); segImage(:,:,1)= segImage(:,:,1) + temp; temp = zeros(size(segIDs), 'uint8'); 
-	temp( segIDs == uniqueIDs(i))= color(2); segImage(:,:,2)= segImage(:,:,2) + temp; temp = zeros(size(segIDs), 'uint8');
-	temp( segIDs == uniqueIDs(i))= color(3); segImage(:,:,3)= segImage(:,:,3) + temp; 
-    % segImage(repmat(segIDs == uniqueIDs(i), [1, 1, 3])) = color;
-imshow(segImage);
-drawnow();
-input('');
-end 
-
-title('Segmentation Image');   
 
 % Load MuJoCo model to get names
 try
