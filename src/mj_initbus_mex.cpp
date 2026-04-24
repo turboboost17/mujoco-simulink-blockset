@@ -36,9 +36,10 @@ class MexFunction: public matlab::mex::Function
         using namespace matlab::mex;
         using namespace matlab::engine;
 
-        if(inputs.size() != 1)
+        // Inputs: xmlPath, [optional] camWidths (scalar or vector), [optional] camHeights (scalar or vector)
+        if(inputs.size() < 1)
         {
-            printError("Expected 1 input");
+            printError("Expected at least 1 input (xmlPath). Optional: camWidths, camHeights");
         }
 
         std::string pathStr;
@@ -49,14 +50,81 @@ class MexFunction: public matlab::mex::Function
         }
         else
         {
-            printError("Only char array allowed as input");
+            printError("Only char array allowed as first input (xmlPath)");
+        }
+
+        // Parse optional camera resolution arrays
+        std::vector<int> camWidths;
+        std::vector<int> camHeights;
+        
+        if(inputs.size() >= 2)
+        {
+            TypedArray<double> widthArr = inputs[1];
+            for(auto val : widthArr)
+            {
+                camWidths.push_back(static_cast<int>(val));
+            }
+        }
+        
+        if(inputs.size() >= 3)
+        {
+            TypedArray<double> heightArr = inputs[2];
+            for(auto val : heightArr)
+            {
+                camHeights.push_back(static_cast<int>(val));
+            }
         }
 
         std::shared_ptr<MujocoModelInstance> mi = std::make_shared<MujocoModelInstance>();
-        if(mi->initMdl(pathStr) != 0)
+        // Initialize model but do NOT get cami yet (we need to set custom resolutions first)
+        if(mi->initMdl(pathStr, true, false) != 0)
         {
             printError("Unable to load file");
         }
+
+        // Apply per-camera resolutions before getting camera interface
+        int numCams = static_cast<int>(mi->offscreenCam.size());
+        bool hasWidths = !camWidths.empty();
+        bool hasHeights = !camHeights.empty();
+        
+        for(int camIndex = 0; camIndex < numCams; camIndex++)
+        {
+            int w = 0;  // 0 means use MJCF default
+            int h = 0;
+            
+            if(hasWidths)
+            {
+                // Scalar: apply to all cameras; Vector: use per-camera value
+                if(camWidths.size() == 1)
+                {
+                    w = camWidths[0];
+                }
+                else if(camIndex < static_cast<int>(camWidths.size()))
+                {
+                    w = camWidths[camIndex];
+                }
+            }
+            
+            if(hasHeights)
+            {
+                // Scalar: apply to all cameras; Vector: use per-camera value
+                if(camHeights.size() == 1)
+                {
+                    h = camHeights[0];
+                }
+                else if(camIndex < static_cast<int>(camHeights.size()))
+                {
+                    h = camHeights[camIndex];
+                }
+            }
+            
+            // Only set if > 0 (values <= 0 mean use MJCF default)
+            if(w > 0) mi->offscreenCam[camIndex]->desiredWidth = w;
+            if(h > 0) mi->offscreenCam[camIndex]->desiredHeight = h;
+        }
+        
+        // Now get camera interface with custom resolutions applied
+        mi->cami = mi->getCameraInterfacePublic();
 
         int outputIndex = 0;
 
