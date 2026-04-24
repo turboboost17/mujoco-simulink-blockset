@@ -9,11 +9,11 @@
 ifeq ($(OS),Windows_NT)
 ## WINDOWS LOCAL BUILD CONFIG
 include ./win64.mk
-MEX="$(ML_ROOT)/bin/mex.bat"
+MEX=$(ML_ROOT)/bin/mex.bat
 else
 ## LINUX LOCAL BUILD CONFIG
 include ./glnxa64.mk
-MEX="$(ML_ROOT)/bin/mex"
+MEX=$(ML_ROOT)/bin/mex
 endif
 
 GLFW_IMPORTLIB_PATH=$(SET_GLFW_IMPORTLIB_PATH)
