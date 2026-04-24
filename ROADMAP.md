@@ -5,6 +5,17 @@ Tracking integration status, known gaps, and upcoming work on the
 
 ## Recently landed
 
+- **MuJoCo 3.4.0 → 3.7.0 upgrade (2026-04-24)**: swapped
+  `lib/{win64,linux-x86_64,linux-aarch64}/mujoco/` to 3.7.0,
+  refreshed `blocks/mujoco.dll`, bumped `MJ_VER` in both install.m,
+  added 3.7.0 entries to `tools/links.json`. Rebuilt all 6 MEX clean
+  against new headers — no source edits required (our API surface
+  is stable across 3.5/3.6/3.7). Smoke tests green: Core 4/4,
+  Rendering+NewFeature 16 pass / 1 known-limit (same pre-existing
+  per-camera parser gap, unchanged from 3.4.0). Caveat: Windows
+  `tar.exe` cannot create the Linux `libmujoco.so → libmujoco.so.3.7.0`
+  symlink — must be recreated manually on the Linux side before
+  running WSL/Pi.
 - `d759257` `blocks/` rebased on seg baseline (segmentation IDs, per-camera
   resolution mask params, YOLO export, xacro import helpers).
 - `3dd1492` `src/` C++ rebased on seg baseline (buffer safety, conditional
@@ -62,7 +73,8 @@ Tracking integration status, known gaps, and upcoming work on the
 
 ### Open TODOs
 
-1. **MuJoCo 3.7 upgrade (scheduled next, see section below).**
+1. ~~MuJoCo 3.7 upgrade~~ — done 2026-04-24 (lib swap only, zero source
+   changes; see "Recently landed" above).
 2. **Dynamic parser in `mj_gettingStarted.slx`**: rewire Depth / RGB parsers
    so changing per-camera resolution mask values doesn't break parent
    port-width checks. Likely requires variant subsystems or mask-init
@@ -82,15 +94,17 @@ Tracking integration status, known gaps, and upcoming work on the
 
 ### Environment / supply-chain TODOs
 
-- **MuJoCo 3.7.0 (latest)**: upgrade from current 3.4.0. Breaking changes
-  expected (see upgrade notes below).
+- ~~MuJoCo 3.7.0 upgrade~~ — landed 2026-04-24 (was 3.4.0 → now 3.7.0).
 - **GLFW 3.4**: optional bump from 3.3.7 (minor API additions, non-breaking).
-- **Renumber `install.m` to handle new mujoco dll name / pdb layout**.
+- **Linux tarball symlink**: post-install step needed on Linux hosts to
+  recreate `libmujoco.so -> libmujoco.so.3.7.0` inside
+  `lib/linux-x86_64/mujoco/lib/` and `lib/linux-aarch64/mujoco/lib/`.
+  Consider automating this in `install.m` via a WSL shell-out.
 
-## MuJoCo 3.7 upgrade plan
+## MuJoCo 3.7 upgrade plan (historical — completed 2026-04-24)
 
-Current: MuJoCo 3.4.0. Target: latest 3.7.x. **Breaking changes that affect
-this codebase:**
+Previous: MuJoCo 3.4.0. Target (shipped): 3.7.0. **Breaking changes audited
+during the upgrade — none of them affected this codebase:**
 
 - `mjr_readPixels` / `mjr_drawPixels` signature and behavior stability —
   verify segmentation readback still returns packed RGB IDs as uint8 via
