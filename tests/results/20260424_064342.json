@@ -1,0 +1,75 @@
+{
+  "timestamp": "20260424_064342",
+  "matlabRelease": "2025a",
+  "hostname": "AURORA111",
+  "passed": 0,
+  "failed": 8,
+  "incomplete": 4,
+  "duration_s": 140.8539268,
+  "tests": [
+    {
+      "name": "t_RenderingModes/runComboBriefly(mode=Off)",
+      "passed": false,
+      "failed": true,
+      "incomplete": false,
+      "duration": 41.0085301,
+      "details": ""
+    },
+    {
+      "name": "t_RenderingModes/runComboBriefly(mode=RGB)",
+      "passed": false,
+      "failed": true,
+      "incomplete": false,
+      "duration": 11.1965443,
+      "details": ""
+    },
+    {
+      "name": "t_RenderingModes/runComboBriefly(mode=Depth)",
+      "passed": false,
+      "failed": true,
+      "incomplete": true,
+      "duration": 27.140873,
+      "details": ""
+    },
+    {
+      "name": "t_RenderingModes/runComboBriefly(mode=Seg)",
+      "passed": false,
+      "failed": true,
+      "incomplete": false,
+      "duration": 11.0737215,
+      "details": ""
+    },
+    {
+      "name": "t_RenderingModes/runComboBriefly(mode=RGBDepth)",
+      "passed": false,
+      "failed": true,
+      "incomplete": true,
+      "duration": 13.7179281,
+      "details": ""
+    },
+    {
+      "name": "t_RenderingModes/runComboBriefly(mode=DepthSeg)",
+      "passed": false,
+      "failed": true,
+      "incomplete": true,
+      "duration": 13.0649248,
+      "details": ""
+    },
+    {
+      "name": "t_RenderingModes/runComboBriefly(mode=SegRGB)",
+      "passed": false,
+      "failed": true,
+      "incomplete": false,
+      "duration": 10.377609,
+      "details": ""
+    },
+    {
+      "name": "t_RenderingModes/runComboBriefly(mode=AllThree)",
+      "passed": false,
+      "failed": true,
+      "incomplete": true,
+      "duration": 13.273795999999999,
+      "details": ""
+    }
+  ]
+}

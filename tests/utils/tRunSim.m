@@ -51,16 +51,30 @@ function [simOut, simMeta] = tRunSim(modelPath, opts)
     end
     simMeta.mjBlk = mjBlk;
 
+    % Ensure xmlFile resolves on the current machine BEFORE touching any
+    % other mask param that would force mask init to re-run mj_initbus.
+    % Saved example models sometimes carry an absolute developer path.
+    currentXml = get_param(mjBlk, 'xmlFile');
+    if exist(currentXml, 'file') ~= 2
+        resolvedXml = which('dummy.xml');
+        if isempty(resolvedXml)
+            resolvedXml = fullfile(fileparts(which('mj_maskinit')), 'dummy.xml');
+        end
+        assert(exist(resolvedXml,'file')==2, 'tRunSim:xmlNotFound', ...
+            'dummy.xml not found on path; install.m may not have been run.');
+        set_param(mjBlk, 'xmlFile', resolvedXml);
+        simMeta.xmlRebased = resolvedXml;
+    end
+
     safeSet = @(param, val) setIfPresent(mjBlk, param, val);
     if ~isempty(opts.RgbOut);        safeSet('rgbOutOption', opts.RgbOut); end
     if ~isempty(opts.DepthOut);      safeSet('depthOutOption', opts.DepthOut); end
     if ~isempty(opts.SegOut);        safeSet('segmentationOutOption', opts.SegOut); end
     if ~isempty(opts.RenderingType); safeSet('renderingType', opts.RenderingType); end
     if ~isempty(opts.CustomWidth)
-        safeSet('cameraResolutionMode', 'custom');
-        safeSet('customWidth',  num2str(opts.CustomWidth));
+        safeSet('camWidth',  mat2str(opts.CustomWidth));
     end
-    if ~isempty(opts.CustomHeight); safeSet('customHeight', num2str(opts.CustomHeight)); end
+    if ~isempty(opts.CustomHeight); safeSet('camHeight', mat2str(opts.CustomHeight)); end
 
     set_param(modelName, 'StopTime', opts.StopTime, ...
                          'SimulationMode', opts.SolverMode, ...

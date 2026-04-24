@@ -1,0 +1,83 @@
+{
+  "timestamp": "20260424_065835",
+  "matlabRelease": "2025a",
+  "hostname": "AURORA111",
+  "passed": 6,
+  "failed": 3,
+  "incomplete": 0,
+  "duration_s": 35.8786145,
+  "tests": [
+    {
+      "name": "t_PerCameraResolution/initbusAcceptsResolutionArgs",
+      "passed": true,
+      "failed": false,
+      "incomplete": false,
+      "duration": 0.61022660000000006,
+      "details": ""
+    },
+    {
+      "name": "t_PerCameraResolution/maskExposesCustomResolution",
+      "passed": false,
+      "failed": true,
+      "incomplete": false,
+      "duration": 1.7938076,
+      "details": ""
+    },
+    {
+      "name": "t_PerCameraResolution/customResolutionRuns",
+      "passed": false,
+      "failed": true,
+      "incomplete": false,
+      "duration": 28.1896599,
+      "details": ""
+    },
+    {
+      "name": "t_SegmentationIDs/labelmapMexExists",
+      "passed": true,
+      "failed": false,
+      "incomplete": false,
+      "duration": 0.5637657,
+      "details": ""
+    },
+    {
+      "name": "t_SegmentationIDs/xmlLabelmapReturnsTable",
+      "passed": true,
+      "failed": false,
+      "incomplete": false,
+      "duration": 0.1304499,
+      "details": ""
+    },
+    {
+      "name": "t_SegmentationIDs/decoderAcceptsXmlLabelSource",
+      "passed": true,
+      "failed": false,
+      "incomplete": false,
+      "duration": 0.1213569,
+      "details": ""
+    },
+    {
+      "name": "t_SegmentationVideo/segmentationVideoFileWrites",
+      "passed": false,
+      "failed": true,
+      "incomplete": false,
+      "duration": 3.7873894,
+      "details": ""
+    },
+    {
+      "name": "t_XacroImport/xacroToolsPresent",
+      "passed": true,
+      "failed": false,
+      "incomplete": false,
+      "duration": 0.61320000000000008,
+      "details": ""
+    },
+    {
+      "name": "t_XacroImport/kortexFixtureAvailable",
+      "passed": true,
+      "failed": false,
+      "incomplete": false,
+      "duration": 0.0687585,
+      "details": ""
+    }
+  ]
+}
