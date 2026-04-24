@@ -72,3 +72,12 @@ tests/latest.json
 tests/results/
 tests/_phase0_baseline.log
 
+
+# Auto-generated ROS2 bus conversion
++bus_conv_fcns/
+examples/+bus_conv_fcns/
+
+# External repos / transient logs
+ros_kortex-noetic-devel/
+install_test_*.log
+
