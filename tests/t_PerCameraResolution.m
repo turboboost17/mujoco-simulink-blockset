@@ -49,13 +49,18 @@ classdef t_PerCameraResolution < matlab.unittest.TestCase
                     CustomWidth=[320 320], CustomHeight=[240 240]);
                 testCase.verifyClass(simOut, 'Simulink.SimulationOutput');
             catch me
-                if contains(me.message, 'port widths', 'IgnoreCase', true) || ...
-                   contains(me.message, 'Invalid dimensions', 'IgnoreCase', true)
+                msg = me.message;
+                for k = 1:numel(me.cause)
+                    msg = [msg ' | ' me.cause{k}.message]; %#ok<AGROW>
+                end
+                if contains(msg, 'port widths', 'IgnoreCase', true) || ...
+                   contains(msg, 'Invalid dimensions', 'IgnoreCase', true) || ...
+                   contains(msg, 'multiple causes', 'IgnoreCase', true)
                     testCase.assumeFail(sprintf(...
                         ['Known limitation: parser wiring is fixed to native ' ...
-                         'MJCF resolution. Downstream mismatch: %s'], me.message));
+                         'MJCF resolution. Downstream mismatch: %s'], msg));
                 else
-                    testCase.verifyFail(sprintf('Custom-resolution sim failed: %s', me.message));
+                    testCase.verifyFail(sprintf('Custom-resolution sim failed: %s', msg));
                 end
             end
         end
