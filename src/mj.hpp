@@ -130,10 +130,6 @@ public:
     size_t getCameraRGB(uint8_t *buffer);
     void getCameraDepth(float *buffer);
     void getCameraSegmentation(uint8_t *buffer);
-    
-    // Camera resolution control
-    void setCameraResolution(int camIndex, int width, int height);
-    void setAllCameraResolutions(int width, int height);
 };
 
 enum glTarget
@@ -186,10 +182,6 @@ class MujocoGUI
     // MuJoCo 3.x compatibility: camType and camId are set for offscreen rendering (mjCAMERA_FIXED assumed)
     mjtCamera camType; // Camera type (e.g., mjCAMERA_FIXED)
     int camId;         // Camera index in the model
-    
-    // Custom resolution control (0 means use default MuJoCo viewport)
-    int customWidth = 0;
-    int customHeight = 0;
 
     std::atomic<bool> exited = false;
     std::mutex modelInstancesLock;
@@ -204,9 +196,6 @@ class MujocoGUI
     guiErrCodes init(MujocoModelInstance* mdlInstance, glTarget target);
     void addMi(std::shared_ptr<MujocoModelInstance> mdlInstance);
     void addMi(MujocoModelInstance* mdlInstance);
-    
-    // Camera resolution control
-    void setCustomResolution(int width, int height);
     
     // Run these in a single background thread
     guiErrCodes initInThread(offscreenSize *offSize = NULL, bool stopAtOffScreenSizeCalc = false);

@@ -66,8 +66,8 @@ end
 
 %% RGB
 
-% blankBusPath = [mjBlk, '/rgbToBus/blankBus'];
-% rgbToBusPath = [mjBlk, '/rgbToBus'];
+blankBusPath = [mjBlk, '/rgbToBus/blankBus'];
+rgbToBusPath = [mjBlk, '/rgbToBus'];
 rgbOut1Path = [mjBlk, '/rgb'];
 try
     rgbFieldnames = fieldnames(Simulink.Bus.createMATLABStruct(rgbBus));
@@ -77,8 +77,8 @@ catch
     rgbFieldnames = [];
     mo.getDialogControl('rgbBusText').Prompt = ['RGB Bus Type: ', 'NA'];
 end
- 
-if isempty(rgbFieldnames)
+rgbOutputOption = strcmp(get_param(mjBlk, 'rgbOutOption'), 'on');
+if isempty(rgbFieldnames) || ~rgbOutputOption
     replacer(mjBlk, 'rgb', 'simulink/Sinks/Terminator')
 else
     outportName = 'rgb';
@@ -118,6 +118,33 @@ set_param(mjBlk, 'zfar', num2str(zfar));
 % Add znear and zfar to the base workspace
 assignin('base', 'znear', znear);
 assignin('base', 'zfar', zfar);
+
+%% Segmentation
+segmentationOut1Path = [mjBlk, '/segment'];
+try
+    segmentationFieldnames = fieldnames(Simulink.Bus.createMATLABStruct(segmentationBus));
+    %fails when it is an empty bus TODO. remove try catch
+    mo.getDialogControl('segmentationBusText').Prompt = ['Segmentation Bus Type: ', segmentationBus];
+catch
+    segmentationFieldnames = [];
+    mo.getDialogControl('segmentationBusText').Prompt = ['Segmentation Bus Type: ', 'NA'];
+end
+segmentationOutputOption = strcmp(get_param(mjBlk, 'segmentationOutOption'), 'on');
+
+if isempty(segmentationFieldnames) || ~segmentationOutputOption
+    replacer(mjBlk, 'segment', 'simulink/Sinks/Terminator')
+else
+    outportName = 'segment';
+    replacer(mjBlk, outportName, 'simulink/Sinks/Out1');
+    set_param([mjBlk, '/', outportName], "Port", num2str(portIndex));
+    portIndex = portIndex+1;
+end
+
+
+
+assignin('base','znear', znear);
+assignin('base','zfar', zfar);
+
 
 %% Segmentation
 segmentationOut1Path = [mjBlk, '/segment'];
