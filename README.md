@@ -2,10 +2,12 @@
 
 This repository provides a Simulink&reg; C-MEX S-Function block interface to the [MuJoCo&trade; physics engine](https://mujoco.org/).
 
+
+
 Useful for,
 1. Robot simulation (mobile, biomimetics, grippers, robotic arm)
 2. Development of autonomous algorithms
-3. Camera (RGB, Depth) rendering
+3. Camera (RGB, Depth, Segmentation) rendering
 
 ## Installation Instructions
 
@@ -17,10 +19,13 @@ Useful for,
 - Robotics System Toolbox&trade; (optional)
 - Control System Toolbox&trade; (optional)
 - Simulink&reg; Coder&trade; (optional)
+- ROS&reg; Toolbox&trade; (optional)
 
-MATLAB R2022b or newer is recommended. Install MATLAB with the above products and then proceed to set up MuJoCo blocks.
+MATLAB R2024b or newer is recommended. Install MATLAB with the above products and then proceed to set up MuJoCo blocks.
+- MuJoCo 3.4
+- GLFW 3.4
 
-*Note - You may need to rebuild the S-Function if you are using an older release of MATLAB*.
+*Note - You will need to rebuild the S-Function because the repo is not tracking the binary files for this internal repo*.
 
 ### Simulink Blockset for MuJoCo
     
@@ -47,7 +52,7 @@ If the installation is successful, you should see a pendulum model running in a 
 *(Linux users) - In case MATLAB crashes, it may be due to a glibc bug. Please follow this [bug report](https://www.mathworks.com/support/bugreports/2632298) for a workaround!*
 
 ### Blocks
-<img width="400" alt="mjLib" src="https://user-images.githubusercontent.com/8917581/230754094-908a0a52-2c5d-4e8e-bd82-d2dcc553a846.png">
+
 
 MuJoCo Plant block steps MuJoCo engine, renders visualization window & camera, sets actuator data, and outputs sensor readings
 
@@ -57,12 +62,72 @@ Inputs can either be a Simulink Bus or a vector.
 
 Sensors are output as a Simulink Bus.
 
-RGB and Depth buffers from cameras are output as vectors. These can be decoded to Simulink image/matrix using the RGB and Depth Parser blocks.
+RGB and Depth buffers from cameras are output as vectors. These can be decoded to Simulink image/matrix using the RGB and Depth Parser blocks.  This internal version supports orthographic depth cameras with accurate depth measurements from inside the Depth Parser blocks.  For orthographic cameras it must be set to orthographic both in MuJoCo and the Depth camera block.
 
+*When updating cameras or global resolution clear workspace of bus definitions and refresh cameras in camera block dialogs so images render properly.  Restarting Matlab works as a last resort.*
 
-https://user-images.githubusercontent.com/8917581/230754110-e98b0ed6-05af-416c-9f39-7e5abf562b25.mp4
+## Z-Buffer Depth Resolution Control
 
-https://user-images.githubusercontent.com/8917581/230754121-8486a61f-a2db-452c-a943-8682172b4f46.mp4
+To control Z-depth resolution for depth camera output, use `zfar`, `znear`, and `extent` parameters in your MJCF model.
+
+### Depth Buffer Equations
+
+**For Orthographic Cameras (linear depth):**
+```
+depth_meters = depth_buffer_value * (zfar - znear) + znear
+```
+
+**For Perspective Cameras (non-linear depth):**
+```
+depth_meters = znear / (1 - depth_buffer_value × (1 - znear/zfar))
+```
+
+### MuJoCo MJCF Parameter Relationships
+
+In MuJoCo, the actual clipping planes are calculated as:
+```
+znear_actual = vis.map.znear × extent
+zfar_actual = vis.map.zfar × extent
+```
+
+### Calculating Parameters for Required Resolution
+
+**For 32-bit depth buffer (4,294,967,296 discrete values):**
+
+**Orthographic Camera Resolution:**
+```
+resolution = (zfar_actual - znear_actual) / (2^32 - 1)
+where:
+zfar_actual = vis.map.zfar × extent
+znear_actual = vis.map.znear × extent
+```
+
+**Example: 1 micron resolution with znear_actual = 0.054m:**
+- Required zfar_actual = znear_actual + (1e-6 × (2^32 - 1)) = 0.054 + 4.295 = 4.349m
+- If extent = 3: vis.map.zfar = 4.349/3 = 1.450, vis.map.znear = 0.054/3 = 0.018
+- This gives actual resolution = (4.349 - 0.054) / (2^32 - 1) = 1.0 micron
+
+**Perspective Camera Resolution (varies with depth):**
+- Best resolution at znear plane: `resolution_near ≈ znear² / (zfar × 2^32)`
+- Worst resolution at zfar plane: `resolution_far ≈ (zfar - znear)² / (znear × 2^32)`
+
+### MJCF Configuration Example
+
+```xml
+<statistic extent="3" />  <!-- Required for controlling camera render depth resolution -->
+
+<visual>
+    <global offwidth="640" offheight="480" /> <!-- Camera H/V render resolution -->
+    <map zfar="1.450" znear="0.018" />  <!-- For 1 micron resolution: znear_actual=0.054m, zfar_actual=4.349m -->
+    <!-- <quality shadowsize="16384"/> -->
+</visual>
+```
+
+**Configuration explanation:**
+- `extent="3"` scales both clipping planes and depth resolution
+- `znear_actual = 0.018 × 3 = 0.054m` (actual near clipping plane)
+- `zfar_actual = 1.450 × 3 = 4.349m` (actual far clipping plane)
+- Depth resolution = (4.349 - 0.054) / (2^32 - 1) = 1.0 micron
 
 
 ## Build Instructions (optional)
@@ -92,7 +157,7 @@ Steps for building/rebuilding the C-MEX S-Function code. These instructions are 
     `$ sudo apt update && sudo apt install build-essential git libglfw3 libglfw3-dev `
 - Clone this repository
 
-    `$ git clone git@github.com:mathworks-robotics/mujoco-simulink-blockset.git`
+    `$ git clone git@github.com:turboboost17/mujoco-simulink-blockset.git`
 - Launch MATLAB and open the repository folder. Run the install.m script.
     - `>> install`
 - Open tools/ and run the following commands in MATLAB command Windows
@@ -162,7 +227,7 @@ Building glfw from source ([glfw main - commit id](https://github.com/glfw/glfw/
 
 ## License
 
-The license is available in the license.txt file within this repository.
+The license is available in the license.txt file within this repository. Similiar to BSD or MIT.
 
 ## Acknowledgments
 Cite this work as,
@@ -178,10 +243,3 @@ MuJoCo and GLFW libraries are dynamically linked against the S-Function and are 
 
 UR5e MJCF XML from [MuJoCo Menagerie](https://github.com/deepmind/mujoco_menagerie/tree/main/universal_robots_ur5e) was used for creating demo videos.
 
-## Community Support
-
-<!--- You can post your queries on the [MATLAB&reg; Central&trade; File Exchange](https://www.mathworks.com/matlabcentral/fileexchange/####-file-exchange-title) page. --->
-
-You can post your queries in the discussions section.
-
-Copyright 2023 The MathWorks, Inc.
