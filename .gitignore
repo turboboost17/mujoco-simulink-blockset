@@ -67,3 +67,8 @@ glnxa64/
 maci64/
 maca64/
 arm64/
+# Test run artifacts
+tests/latest.json
+tests/results/
+tests/_phase0_baseline.log
+
