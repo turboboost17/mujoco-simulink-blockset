@@ -241,7 +241,7 @@ void forcopy(uint8_t *to, uint8_t *from, size_t size)
     }
 }
 
-size_t MujocoModelInstance::getCameraRGB(uint8_t *buffer)
+size_t MujocoModelInstance::getCameraRGB(uint8_t *buffer, size_t maxBufferSize)
 {
     std::lock_guard<std::mutex> mutLock(camiMutex);
     // if cami.count is 0, either no camera is in model or camera is not initialized
@@ -249,44 +249,72 @@ size_t MujocoModelInstance::getCameraRGB(uint8_t *buffer)
     for(int index=0; index<cami.count; index++ )
     {
         size_t rgbArraySize = 3*cami.size[index].height*cami.size[index].width;
-        {
+        // Safety check: prevent buffer overflow if custom resolution exceeds output buffer
+        if (maxBufferSize > 0 && (addr + rgbArraySize) > maxBufferSize) {
+            size_t remaining = (addr < maxBufferSize) ? (maxBufferSize - addr) : 0;
+            if (remaining > 0 && offscreenCam[index]->rgb) {
+                std::lock_guard<std::mutex> mutLock(offscreenCam[index]->camBufferMutex);
+                memcpy(buffer+addr, offscreenCam[index]->rgb, remaining*sizeof(uint8_t));
+            }
+            return maxBufferSize; // Buffer full, return early
+        }
+        if (offscreenCam[index]->rgb) {
             std::lock_guard<std::mutex> mutLock(offscreenCam[index]->camBufferMutex);
             memcpy(buffer+addr, offscreenCam[index]->rgb, rgbArraySize*sizeof(uint8_t));
-            // forcopy(buffer+addr, offscreenCam[index]->rgb, rgbArraySize);
         }
         addr += rgbArraySize;
     }
     return addr;
 }
 
-void MujocoModelInstance::getCameraDepth(float *buffer)
+size_t MujocoModelInstance::getCameraDepth(float *buffer, size_t maxBufferSize)
 {
     std::lock_guard<std::mutex> mutLock(camiMutex);
-    unsigned long addr = 0;
+    size_t addr = 0;
     for(int index=0; index<cami.count; index++ )
     {
-        unsigned long size = cami.size[index].height*cami.size[index].width;
-        {
-            std::lock_guard<std::mutex> mutLock(offscreenCam[index]->camBufferMutex);
-            memcpy(buffer+addr, offscreenCam[index]->depth, size*sizeof(float));
+        size_t depthArraySize = cami.size[index].height*cami.size[index].width;
+        // Safety check: prevent buffer overflow if custom resolution exceeds output buffer
+        if (maxBufferSize > 0 && (addr + depthArraySize) > maxBufferSize) {
+            size_t remaining = (addr < maxBufferSize) ? (maxBufferSize - addr) : 0;
+            if (remaining > 0 && offscreenCam[index]->depth) {
+                std::lock_guard<std::mutex> mutLock(offscreenCam[index]->camBufferMutex);
+                memcpy(buffer+addr, offscreenCam[index]->depth, remaining*sizeof(float));
+            }
+            return maxBufferSize; // Buffer full, return early
         }
-        addr += size;
+        if (offscreenCam[index]->depth) {
+            std::lock_guard<std::mutex> mutLock(offscreenCam[index]->camBufferMutex);
+            memcpy(buffer+addr, offscreenCam[index]->depth, depthArraySize*sizeof(float));
+        }
+        addr += depthArraySize;
     }
+    return addr;
 }
 
-void MujocoModelInstance::getCameraSegmentation(uint8_t *buffer)
+size_t MujocoModelInstance::getCameraSegmentation(uint8_t *buffer, size_t maxBufferSize)
 {
     std::lock_guard<std::mutex> mutLock(camiMutex);
-    unsigned long addr = 0;
+    size_t addr = 0;
     for(int index=0; index<cami.count; index++ )
     {
-        unsigned long size = 3*cami.size[index].height*cami.size[index].width;
-        {
-            std::lock_guard<std::mutex> mutLock(offscreenCam[index]->camBufferMutex);
-            memcpy(buffer+addr, offscreenCam[index]->segmentation, size*sizeof(uint8_t));
+        size_t segArraySize = 3*cami.size[index].height*cami.size[index].width;
+        // Safety check: prevent buffer overflow if custom resolution exceeds output buffer
+        if (maxBufferSize > 0 && (addr + segArraySize) > maxBufferSize) {
+            size_t remaining = (addr < maxBufferSize) ? (maxBufferSize - addr) : 0;
+            if (remaining > 0 && offscreenCam[index]->segmentation) {
+                std::lock_guard<std::mutex> mutLock(offscreenCam[index]->camBufferMutex);
+                memcpy(buffer+addr, offscreenCam[index]->segmentation, remaining*sizeof(uint8_t));
+            }
+            return maxBufferSize; // Buffer full, return early
         }
-        addr += size;
+        if (offscreenCam[index]->segmentation) {
+            std::lock_guard<std::mutex> mutLock(offscreenCam[index]->camBufferMutex);
+            memcpy(buffer+addr, offscreenCam[index]->segmentation, segArraySize*sizeof(uint8_t));
+        }
+        addr += segArraySize;
     }
+    return addr;
 }
 
 // GUI rendering ------------------------------------------------------------------
@@ -318,29 +346,6 @@ guiErrCodes MujocoGUI::init(MujocoModelInstance* mdlInstance, glTarget openglTar
     }
     
     return NO_ERR;
-}
-
-void MujocoGUI::setCustomResolution(int width, int height)
-{
-    customWidth = width;
-    customHeight = height;
-}
-
-void MujocoModelInstance::setCameraResolution(int camIndex, int width, int height)
-{
-    if (camIndex < 0 || camIndex >= static_cast<int>(offscreenCam.size())) {
-        std::cerr << "[MuJoCo] Error: Camera index " << camIndex << " out of bounds (0-" << offscreenCam.size()-1 << ")\n";
-        return;
-    }
-    
-    offscreenCam[camIndex]->setCustomResolution(width, height);
-}
-
-void MujocoModelInstance::setAllCameraResolutions(int width, int height)
-{
-    for (int i = 0; i < static_cast<int>(offscreenCam.size()); i++) {
-        offscreenCam[i]->setCustomResolution(width, height);
-    }
 }
 
 guiErrCodes MujocoGUI::initInThread(offscreenSize *offSize, bool stopAtOffScreenSizeCalc)
@@ -421,26 +426,20 @@ guiErrCodes MujocoGUI::initInThread(offscreenSize *offSize, bool stopAtOffScreen
             return OFFSCREEN_TARGET_NOT_SUPPORTED;
         }
 
-        // allocate memory for RGB and depth buffers.
-        viewport = mjr_maxViewport(&con);
-        int W, H;
-        
-        // Use custom resolution if specified, otherwise use default viewport
-        if (customWidth > 0 && customHeight > 0) {
-            W = customWidth;
-            H = customHeight;
-            // Set custom viewport
-            viewport.width = W;
-            viewport.height = H;
-        } else {
-            W = viewport.width;
-            H = viewport.height;
+        // Per-camera resolution: resize offscreen buffer if custom size requested
+        if (desiredWidth > 0 && desiredHeight > 0)
+        {
+            mjr_resizeOffscreen(desiredWidth, desiredHeight, &con);
         }
-        
+
+        // Get viewport size (may be custom or default MJCF global offwidth/offheight)
+        viewport = mjr_maxViewport(&con);
+        int W = viewport.width;
+        int H = viewport.height;
         if(offSize)
         {
-            offSize->height = H;
-            offSize->width  = W;
+            offSize->height = viewport.height;
+            offSize->width  = viewport.width;
             if(stopAtOffScreenSizeCalc)
             {
                 mjv_freeScene(&scn);
@@ -519,34 +518,46 @@ int MujocoGUI::loopInThread()
                 {   
                     std::lock_guard<std::mutex> mutLock(camBufferMutex);
                     
-                    // Standard RGB and depth rendering
-                    mjr_render(viewport, &scn, &con);
-                    mjr_readPixels(rgb, depth, viewport, &con);
+                    // Get render flags from owner MujocoModelInstance
+                    auto* ownerMi = sceneAssetModel;
+                    bool doRGB   = ownerMi->renderRGB || ownerMi->renderSeg;  // Need RGB render for segmentation too
+                    bool doDepth = ownerMi->renderDepth;
+                    bool doSeg   = ownerMi->renderSeg;
                     
-                    // Segmentation rendering
-                    // Save original flags state
-                    int originalFlags[mjNRNDFLAG] = {0};
-                    for (int i = 0; i < mjNRNDFLAG; i++) {
-                        originalFlags[i] = scn.flags[i];
+                    // Standard RGB and depth rendering (only if needed)
+                    if (doRGB || doDepth)
+                    {
+                        mjr_render(viewport, &scn, &con);
+                        mjr_readPixels(doRGB ? rgb : NULL, doDepth ? depth : NULL, viewport, &con);
                     }
                     
-                    // Clear all rendering flags
-                    for (int i = 0; i < mjNRNDFLAG; i++) {
-                        scn.flags[i] = 0;
-                    }
-                    
-                    // Enable only ID colors for segmentation
-                    scn.flags[mjRND_IDCOLOR] = 1;
-                    scn.flags[mjRND_SEGMENT] = 1;
-                    // Render segmentation view
-                    mjr_render(viewport, &scn, &con);
-                    
-                    // Read pixels (rgb buffer only, no depth)
-                    mjr_readPixels(segmentation, NULL, viewport, &con);
-                    
-                    // Restore original rendering flags
-                    for (int i = 0; i < mjNRNDFLAG; i++) {
-                        scn.flags[i] = originalFlags[i];
+                    // Segmentation rendering (only if needed)
+                    if (doSeg)
+                    {
+                        // Save original flags state
+                        int originalFlags[mjNRNDFLAG] = {0};
+                        for (int i = 0; i < mjNRNDFLAG; i++) {
+                            originalFlags[i] = scn.flags[i];
+                        }
+                        
+                        // Clear all rendering flags
+                        for (int i = 0; i < mjNRNDFLAG; i++) {
+                            scn.flags[i] = 0;
+                        }
+                        
+                        // Enable only ID colors for segmentation
+                        scn.flags[mjRND_IDCOLOR] = 1;
+                        scn.flags[mjRND_SEGMENT] = 1;
+                        // Render segmentation view
+                        mjr_render(viewport, &scn, &con);
+                        
+                        // Read pixels (rgb buffer only, no depth)
+                        mjr_readPixels(segmentation, NULL, viewport, &con);
+                        
+                        // Restore original rendering flags
+                        for (int i = 0; i < mjNRNDFLAG; i++) {
+                            scn.flags[i] = originalFlags[i];
+                        }
                     }
                 }
                 

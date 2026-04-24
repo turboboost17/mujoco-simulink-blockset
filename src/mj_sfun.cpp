@@ -11,12 +11,6 @@
 #include <mutex>
 #include <memory>
 
-#ifdef __linux__
-#include <unistd.h>
-#include <linux/limits.h>
-#include <sys/stat.h>
-#endif
-
 // CONSTANT LIMITS
 #define FILE_PATH_LIMIT 1000
 #define PORT_STRING_LMT 1000
@@ -37,6 +31,11 @@ typedef enum {
     BLOCK_SAMPLETIME_INDEX,
     ZOOM_LEVEL_INDEX,
     KEYFRAME_PARAM_INDEX,
+    RGB_OUT_OPTION_INDEX,
+    DEPTH_OUT_OPTION_INDEX,
+    SEG_OUT_OPTION_INDEX,
+    CAM_WIDTH_INDEX,
+    CAM_HEIGHT_INDEX,
     PARAM_COUNT
 } paramIdx;
 
@@ -228,86 +227,7 @@ std::string getXmlFilePath(SimStruct *S)
     const mxArray *fileMexPtr = ssGetSFcnParam(S, XML_PARAM_INDEX);
     char file[FILE_PATH_LIMIT];
     mxGetString(fileMexPtr, file, FILE_PATH_LIMIT-1);
-    std::string filePath(file);
-
-#ifdef __linux__
-    // On Linux targets, the embedded path is a Windows absolute path from
-    // code generation (e.g. "E:\...\blocks\dummy.xml"). Resolve to a local
-    // file by extracting the basename and searching known locations.
-    struct stat st;
-    if (stat(filePath.c_str(), &st) != 0)
-    {
-        // Extract basename from Windows or POSIX path
-        std::string basename = filePath;
-        size_t lastSlash = basename.find_last_of("/\\");
-        if (lastSlash != std::string::npos)
-        {
-            basename = basename.substr(lastSlash + 1);
-        }
-
-        // Try relative to executable directory (colcon install layout)
-        char exePath[PATH_MAX];
-        ssize_t len = readlink("/proc/self/exe", exePath, sizeof(exePath) - 1);
-        std::string exeDir;
-        if (len > 0)
-        {
-            exePath[len] = '\0';
-            exeDir = std::string(exePath);
-            size_t dirSlash = exeDir.find_last_of('/');
-            if (dirSlash != std::string::npos)
-            {
-                exeDir = exeDir.substr(0, dirSlash);
-            }
-
-            // Check next to executable
-            std::string candidate = exeDir + "/" + basename;
-            if (stat(candidate.c_str(), &st) == 0)
-            {
-                return candidate;
-            }
-
-            // Check colcon workspace src/ directory
-            // Install layout: <ws>/install/<pkg>/lib/<pkg>/exe
-            // Source layout:   <ws>/src/<pkg>/src/<file>
-            // From exe dir, go up 4 levels to workspace root
-            std::string wsRoot = exeDir + "/../../../..";
-            // Extract package name from exe dir path (parent of lib/<pkg>)
-            std::string pkgDir = exeDir + "/../..";
-            // Get the real package name from the pkgDir basename
-            char realPkgDir[PATH_MAX];
-            if (realpath(pkgDir.c_str(), realPkgDir))
-            {
-                std::string pkgDirStr(realPkgDir);
-                size_t pkgSlash = pkgDirStr.find_last_of('/');
-                if (pkgSlash != std::string::npos)
-                {
-                    std::string pkgName = pkgDirStr.substr(pkgSlash + 1);
-                    candidate = wsRoot + "/src/" + pkgName + "/src/" + basename;
-                    if (stat(candidate.c_str(), &st) == 0)
-                    {
-                        char resolvedPath[PATH_MAX];
-                        if (realpath(candidate.c_str(), resolvedPath))
-                        {
-                            return std::string(resolvedPath);
-                        }
-                        return candidate;
-                    }
-                }
-            }
-        }
-
-        // Try current working directory
-        if (stat(basename.c_str(), &st) == 0)
-        {
-            return basename;
-        }
-
-        // Return basename as fallback (mj_loadXML will report a clear error)
-        return basename;
-    }
-#endif
-
-    return filePath;
+    return std::string(file);
 }
 
 int getIntParam(SimStruct *S, int index)
@@ -422,8 +342,7 @@ static void mdlStart(SimStruct *S)
     // MODEL INIT
     if(sd.mi[miIndex]->initMdl(file, true, false) != 0)
     {
-       static std::string initErr = "Unable to load MuJoCo model: " + file;
-       ssSetLocalErrorStatus(S, initErr.c_str());
+       ssSetLocalErrorStatus(S,"Unable to initialize model in mdlStart");
        return;
     }
 
@@ -473,6 +392,64 @@ static void mdlStart(SimStruct *S)
         const mxArray *paramMx = ssGetSFcnParam(S, CAMERA_SAMPLETIME_INDEX);
         double cameraSampleTime = mxGetScalar(paramMx);
         sd.mi[miIndex]->cameraRenderInterval = cameraSampleTime;
+    }
+
+    // CONDITIONAL RENDERING FLAGS (from mask parameters)
+    if (ssGetSFcnParamsCount(S) > SEG_OUT_OPTION_INDEX)
+    {
+        const mxArray *rgbOptMx = ssGetSFcnParam(S, RGB_OUT_OPTION_INDEX);
+        const mxArray *depthOptMx = ssGetSFcnParam(S, DEPTH_OUT_OPTION_INDEX);
+        const mxArray *segOptMx = ssGetSFcnParam(S, SEG_OUT_OPTION_INDEX);
+        
+        sd.mi[miIndex]->renderRGB = (mxGetScalar(rgbOptMx) != 0);
+        sd.mi[miIndex]->renderDepth = (mxGetScalar(depthOptMx) != 0);
+        sd.mi[miIndex]->renderSeg = (mxGetScalar(segOptMx) != 0);
+    }
+
+    // PER-CAMERA RESOLUTION (from mask parameters)
+    // CAM_WIDTH and CAM_HEIGHT can be scalar (apply to all cameras) or vector (per-camera)
+    // Values <= 0 mean use MJCF default offwidth/offheight
+    if (ssGetSFcnParamsCount(S) > CAM_HEIGHT_INDEX)
+    {
+        const mxArray *camWidthMx = ssGetSFcnParam(S, CAM_WIDTH_INDEX);
+        const mxArray *camHeightMx = ssGetSFcnParam(S, CAM_HEIGHT_INDEX);
+        
+        size_t numWidths = mxGetNumberOfElements(camWidthMx);
+        size_t numHeights = mxGetNumberOfElements(camHeightMx);
+        const double *widthPtr = mxGetPr(camWidthMx);
+        const double *heightPtr = mxGetPr(camHeightMx);
+        
+        int numCams = static_cast<int>(sd.mi[miIndex]->offscreenCam.size());
+        
+        for (int camIndex = 0; camIndex < numCams; camIndex++)
+        {
+            int desiredW = 0;  // 0 means use MJCF default
+            int desiredH = 0;
+            
+            // Width: scalar (apply to all) or vector (per-camera)
+            if (numWidths == 1)
+            {
+                desiredW = static_cast<int>(widthPtr[0]);
+            }
+            else if (static_cast<size_t>(camIndex) < numWidths)
+            {
+                desiredW = static_cast<int>(widthPtr[camIndex]);
+            }
+            
+            // Height: scalar (apply to all) or vector (per-camera)
+            if (numHeights == 1)
+            {
+                desiredH = static_cast<int>(heightPtr[0]);
+            }
+            else if (static_cast<size_t>(camIndex) < numHeights)
+            {
+                desiredH = static_cast<int>(heightPtr[camIndex]);
+            }
+            
+            // Only set if > 0 (values <= 0 mean use MJCF default)
+            if (desiredW > 0) sd.mi[miIndex]->offscreenCam[camIndex]->desiredWidth = desiredW;
+            if (desiredH > 0) sd.mi[miIndex]->offscreenCam[camIndex]->desiredHeight = desiredH;
+        }
     }
 
     ssSetIWorkValue(S, MI_IW_IDX, miIndex);
@@ -547,14 +524,6 @@ static void mdlStart(SimStruct *S)
 #define MDL_UPDATE
 static void mdlUpdate(SimStruct *S, int_T tid)
 {
-    int miIndex = ssGetIWorkValue(S, MI_IW_IDX);
-    if (miIndex < 0 || miIndex >= (int)sd.mi.size() || !sd.mi[miIndex] ||
-        !sd.mi[miIndex]->get_m() || !sd.mi[miIndex]->get_d())
-    {
-        ssSetLocalErrorStatus(S, "MuJoCo model not initialized. Check XML file path.");
-        return;
-    }
-
     if(!sd.renderingThreadStarted)
     {
         sd.renderingThreadStarted = true;
@@ -562,6 +531,7 @@ static void mdlUpdate(SimStruct *S, int_T tid)
     }
 
     // progress simulation by 1 time step in discrete time
+    int miIndex = ssGetIWorkValue(S, MI_IW_IDX);  
 
     vector<double> uVec;
     int_T nInputs = ssGetInputPortWidth(S, CONTROL_PORT_INDEX) - 1; // last index is a dummy
@@ -597,14 +567,16 @@ void renderingThreadFcn()
         std::lock_guard<std::mutex> mutLock(miTemp->camiMutex);
         
         cameraInterface &camiTemp = miTemp->cami;
-        camiTemp.count = miTemp->offscreenCam.size();
+        // Note: Set count AFTER populating size vector to avoid race condition
+        // where getCameraRGB sees count > 0 but size vector is empty
+        unsigned int camCount = miTemp->offscreenCam.size();
         // names are not needed here in s function.
 
         unsigned long rgbAddr = 0;
         unsigned long depthAddr = 0;
         unsigned long segAddr = 0;
         
-        for(int camIndex = 0; camIndex<camiTemp.count; camIndex++)
+        for(int camIndex = 0; camIndex<camCount; camIndex++)
         {
             offscreenSize offSize;
             auto guiStatus = sd.mi[miIndex]->offscreenCam[camIndex]->initInThread(&offSize);
@@ -629,6 +601,8 @@ void renderingThreadFcn()
         camiTemp.rgbLength = rgbAddr;
         camiTemp.depthLength = depthAddr;
         camiTemp.segLength = segAddr;
+        // Set count LAST to avoid race condition with getCameraRGB/Depth/Segmentation
+        camiTemp.count = camCount;
     }
 
     // INIT GUI windows
@@ -711,12 +685,6 @@ void renderingThreadFcn()
 static void mdlOutputs(SimStruct *S, int_T tid)
 {
     int miIndex = ssGetIWorkValue(S, MI_IW_IDX);
-    if (miIndex < 0 || miIndex >= (int)sd.mi.size() || !sd.mi[miIndex] ||
-        !sd.mi[miIndex]->get_m() || !sd.mi[miIndex]->get_d())
-    {
-        ssSetLocalErrorStatus(S, "MuJoCo model not initialized. Check XML file path.");
-        return;
-    }
     auto &miTemp = sd.mi[miIndex]; 
     
     // Copy sensors to output
@@ -758,9 +726,13 @@ static void mdlOutputs(SimStruct *S, int_T tid)
     if(miTemp->isCameraDataNew)
     {
         //avoid unnecessary memcpy. copy only when there is new data. Rest of the time steps, old data will be output
-        miTemp->getCameraRGB((uint8_t *) rgbOut);
-        miTemp->getCameraDepth((float *) depthOut);
-        miTemp->getCameraSegmentation((uint8_t *) segOut);
+        // Pass buffer sizes to prevent overflow if custom resolution exceeds allocated buffer
+        size_t rgbBufSize = ssGetOutputPortWidth(S, RGB_PORT_INDEX);
+        size_t depthBufSize = ssGetOutputPortWidth(S, DEPTH_PORT_INDEX);
+        size_t segBufSize = ssGetOutputPortWidth(S, SEGMENTATION_PORT_INDEX);
+        miTemp->getCameraRGB((uint8_t *) rgbOut, rgbBufSize);
+        miTemp->getCameraDepth((float *) depthOut, depthBufSize);
+        miTemp->getCameraSegmentation((uint8_t *) segOut, segBufSize);
         miTemp->isCameraDataNew = false;
     }
 }

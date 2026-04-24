@@ -104,6 +104,9 @@ public:
 
     int initMdl(std::string file, bool shouldInitCam = true, bool shouldGetCami = true);
     int initData();
+    
+    // Public accessor for camera interface (needed for per-camera resolution in mj_initbus_mex)
+    cameraInterface getCameraInterfacePublic() { return getCameraInterface(); }
 
     // Cache for internal usage
     controlInterface ci;
@@ -125,11 +128,16 @@ public:
     binarySemp cameraSync; // semp for syncing main thread and render camera thread
     std::atomic<bool> shouldCameraRenderNow = false;
 
+    // Conditional rendering flags (set from S-Function parameters)
+    bool renderRGB = true;
+    bool renderDepth = true;
+    bool renderSeg = true;
+
     void step(std::vector<double> u);
     std::vector<double> getSensor(unsigned index);
-    size_t getCameraRGB(uint8_t *buffer);
-    void getCameraDepth(float *buffer);
-    void getCameraSegmentation(uint8_t *buffer);
+    size_t getCameraRGB(uint8_t *buffer, size_t maxBufferSize = 0);
+    size_t getCameraDepth(float *buffer, size_t maxBufferSize = 0);
+    size_t getCameraSegmentation(uint8_t *buffer, size_t maxBufferSize = 0);
 };
 
 enum glTarget
@@ -182,6 +190,10 @@ class MujocoGUI
     // MuJoCo 3.x compatibility: camType and camId are set for offscreen rendering (mjCAMERA_FIXED assumed)
     mjtCamera camType; // Camera type (e.g., mjCAMERA_FIXED)
     int camId;         // Camera index in the model
+
+    // Per-camera resolution control (0 means use MJCF global offwidth/offheight)
+    int desiredWidth = 0;
+    int desiredHeight = 0;
 
     std::atomic<bool> exited = false;
     std::mutex modelInstancesLock;
