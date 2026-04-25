@@ -61,8 +61,11 @@ classdef t_YoloExport < matlab.unittest.TestCase
                 'No images written');
 
             lbls = dir(fullfile(outDir, 'labels', 'train', '*.txt'));
+            % classes.txt is a name-per-line manifest, not a YOLO
+            % annotation. Skip it when validating YOLO row format.
+            lbls = lbls(~strcmp({lbls.name}, 'classes.txt'));
             testCase.verifyGreaterThan(numel(lbls), 0, ...
-                'No label files written');
+                'No per-frame label files written');
 
             % Validate one label file: each row should have >=5 numeric
             % tokens, and all coordinates should be in [0, 1].
