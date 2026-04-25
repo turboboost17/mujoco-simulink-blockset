@@ -145,9 +145,6 @@ end
 set_param(mjBlk, 'znear', num2str(znear));
 set_param(mjBlk, 'zfar', num2str(zfar));
 
-assignin('base','znear', znear);
-assignin('base','zfar', zfar);
-
 
 %% Segmentation
 segmentationOut1Path = [mjBlk, '/segment'];
@@ -174,7 +171,6 @@ end
 
 %% Sample Time
 sampleTime = mj_sampletime(xmlFile);
-assignin('base','sampleTime', sampleTime);
 set_param(mjBlk, 'sampleTime', num2str(sampleTime));
 
 mo.getDialogControl('sampleTimeText').Prompt = ['Sample Time: ', num2str(sampleTime)];
