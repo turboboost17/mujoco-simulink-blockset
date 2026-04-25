@@ -35,34 +35,24 @@ classdef t_PerCameraResolution < matlab.unittest.TestCase
 
         function customResolutionRuns(testCase)
             % End-to-end: request custom per-camera widths/heights briefly.
-            % NOTE: The saved mj_gettingStarted depth/rgb parser blocks are
-            % wired to the native MJCF camera resolutions; driving the mask
-            % to a different (smaller) resolution triggers a port-width
-            % mismatch in the downstream Selector/Switch. This is a known
-            % seg-baseline limitation: using custom res requires the user
-            % to also rewire the parser. Treated as assumption-failed.
+            %
+            % Historical note: the saved mj_gettingStarted depth/rgb parser
+            % blocks used to be wired to the native MJCF camera resolutions
+            % via stale `inputBusType` hashes, so driving the mask to a
+            % different size triggered a port-width mismatch in the
+            % downstream Selector/Switch.
+            %
+            % Fix landed 2026-04-24: blocks/mj_parser_maskinit.m runs from
+            % the parser MaskInitialization and rebinds inputBusType +
+            % imageRows/imageCols/start/end every load + dialog change.
+            % If this test ever fires the port-widths catch below, the
+            % auto-refresh has regressed -- treat it as a real failure.
             modelPath = which('mj_gettingStarted.slx');
             testCase.assumeNotEmpty(modelPath);
-            try
-                [simOut, ~] = tRunSim(modelPath, StopTime='0.04', ...
-                    RgbOut='on', ...
-                    CustomWidth=[320 320], CustomHeight=[240 240]);
-                testCase.verifyClass(simOut, 'Simulink.SimulationOutput');
-            catch me
-                msg = me.message;
-                for k = 1:numel(me.cause)
-                    msg = [msg ' | ' me.cause{k}.message]; %#ok<AGROW>
-                end
-                if contains(msg, 'port widths', 'IgnoreCase', true) || ...
-                   contains(msg, 'Invalid dimensions', 'IgnoreCase', true) || ...
-                   contains(msg, 'multiple causes', 'IgnoreCase', true)
-                    testCase.assumeFail(sprintf(...
-                        ['Known limitation: parser wiring is fixed to native ' ...
-                         'MJCF resolution. Downstream mismatch: %s'], msg));
-                else
-                    testCase.verifyFail(sprintf('Custom-resolution sim failed: %s', msg));
-                end
-            end
+            [simOut, ~] = tRunSim(modelPath, StopTime='0.04', ...
+                RgbOut='on', ...
+                CustomWidth=[320 320], CustomHeight=[240 240]);
+            testCase.verifyClass(simOut, 'Simulink.SimulationOutput');
         end
     end
 end
