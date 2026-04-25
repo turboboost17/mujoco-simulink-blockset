@@ -22,8 +22,8 @@ Useful for,
 - ROS&reg; Toolbox&trade; (optional)
 
 MATLAB R2024b or newer is recommended. Install MATLAB with the above products and then proceed to set up MuJoCo blocks.
-- MuJoCo 3.4
-- GLFW 3.4
+- MuJoCo 3.7
+- GLFW 3.3.7 (3.4 optional)
 
 *Note - You will need to rebuild the S-Function because the repo is not tracking the binary files for this internal repo*.
 
@@ -64,7 +64,7 @@ Sensors are output as a Simulink Bus.
 
 RGB and Depth buffers from cameras are output as vectors. These can be decoded to Simulink image/matrix using the RGB and Depth Parser blocks.  This internal version supports orthographic depth cameras with accurate depth measurements from inside the Depth Parser blocks.  For orthographic cameras it must be set to orthographic both in MuJoCo and the Depth camera block.
 
-*When updating cameras or global resolution clear workspace of bus definitions and refresh cameras in camera block dialogs so images render properly.  Restarting Matlab works as a last resort.*
+*Resolution changes — global `<global offwidth/offheight>`, MJCF per-camera `<camera resolution="W H">`, or the per-camera mask-driven `camWidth`/`camHeight` — now propagate to the RGB and Depth Parser blocks automatically via `mj_parser_maskinit.m`. Restarting MATLAB or manually clearing the workspace bus definitions is no longer required.*
 
 ## Z-Buffer Depth Resolution Control
 

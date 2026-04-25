@@ -5,6 +5,31 @@ Tracking integration status, known gaps, and upcoming work on the
 
 ## Recently landed
 
+- **Known-issue cleanup pass (2026-04-25)**:
+  - `mj_parser_maskinit.m` + `tools/patch_parsers.m` rebuilt the RGB / Depth
+    Parser MaskInitialization callbacks so dropdowns + port widths
+    auto-rebind to the current `mj_bus_<kind>_<hash>` after a resolution
+    change — no more manual open-and-refresh of each parser.
+  - `MujocoGUI::initInThread` (in `src/mj.cpp`) now resolves effective
+    offscreen W/H from the priority chain `desiredWidth/Height →
+    m->cam_resolution[2*i] → m->vis.global.offwidth/offheight → 640×480`
+    and always calls `mjr_resizeOffscreen` before `mjr_maxViewport`. This
+    closes the MJCF per-camera `<camera resolution="W H">` gap.
+  - `install.m` now writes `libmujoco.so → libmujoco.so.<ver>` symlinks
+    natively on Linux/macOS, and on Windows drops a
+    `create_libmujoco_symlink.sh` next to each Linux lib + a best-effort
+    `wsl -e sh -c` passthrough so the symlink is created automatically
+    when WSL is available.
+  - `blocks/mjLib.slx` re-saved as native R2025a in both repos —
+    forward-compat "saved in 24.2 R2024b" warning is gone.
+  - `t_PerCameraResolution/customResolutionRuns` no longer wraps the
+    custom-res sim in `try/catch + assumeFail`; any port-widths error
+    is now a real regression.
+  - `tests/t_YoloExport.m` added: 2-frame synthetic seg video → exporter
+    → assert YOLO directory layout + normalized label coords ∈ [0,1].
+  - Removed `assignin('base', 'znear'/'zfar'/'sampleTime', ...)` from
+    `blocks/mj_maskinit.m` — values were already pushed via `set_param`
+    onto the mask, so the base-workspace writes were dead pollution.
 - **MuJoCo 3.4.0 → 3.7.0 upgrade (2026-04-24)**: swapped
   `lib/{win64,linux-x86_64,linux-aarch64}/mujoco/` to 3.7.0,
   refreshed `blocks/mujoco.dll`, bumped `MJ_VER` in both install.m,
@@ -12,10 +37,7 @@ Tracking integration status, known gaps, and upcoming work on the
   against new headers — no source edits required (our API surface
   is stable across 3.5/3.6/3.7). Smoke tests green: Core 4/4,
   Rendering+NewFeature 16 pass / 1 known-limit (same pre-existing
-  per-camera parser gap, unchanged from 3.4.0). Caveat: Windows
-  `tar.exe` cannot create the Linux `libmujoco.so → libmujoco.so.3.7.0`
-  symlink — must be recreated manually on the Linux side before
-  running WSL/Pi.
+  per-camera parser gap, unchanged from 3.4.0).
 - `d759257` `blocks/` rebased on seg baseline (segmentation IDs, per-camera
   resolution mask params, YOLO export, xacro import helpers).
 - `3dd1492` `src/` C++ rebased on seg baseline (buffer safety, conditional
@@ -56,34 +78,27 @@ Tracking integration status, known gaps, and upcoming work on the
 
 - **Per-camera resolution downstream parser**: `mj_gettingStarted.slx` wires
   `MuJoCo Depth Parser` selector indices against the native MJCF resolution.
-  Driving `camWidth` / `camHeight` to a different size triggers
-  "Invalid dimensions" / "port widths" errors. `t_PerCameraResolution/customResolutionRuns`
-  marks this as `assumeFail` with the known-limit note. Fix requires
-  rewiring the parser to dynamic selector indices (or regenerating the
-  example model after mask init).
-- **MJCF `<camera resolution="W H">` attribute not honored**: MEX-level
-  per-camera resolution args work, but the per-camera resolution attribute
-  inside MJCF falls back to the global `<global offwidth/offheight>` size.
-  This is a C++ plumbing gap in `initCameras()` / offscreen buffer sizing.
+  With the 2026-04-25 parser auto-refresh patch, mask-init now rebinds
+  bus + dropdown automatically when the resolution changes. Previously
+  a hard known-limit; now expected to pass — if `t_PerCameraResolution/
+  customResolutionRuns` fails, treat it as a regression of the parser
+  fix rather than an inherent limitation.
 - **`set_param` is a no-op for mask init when the new value matches the
   saved value**: documented in tests; force re-init via `bdclose all` in
   `TestMethodSetup` or by touching `xmlFile` (which always triggers init).
-- **`mjLib` saved in R2024b**: loads with forward-compat warnings under
-  R2025a. No functional impact but noisy in logs.
 
 ### Open TODOs
 
 1. ~~MuJoCo 3.7 upgrade~~ — done 2026-04-24 (lib swap only, zero source
    changes; see "Recently landed" above).
-2. **Dynamic parser in `mj_gettingStarted.slx`**: rewire Depth / RGB parsers
-   so changing per-camera resolution mask values doesn't break parent
-   port-width checks. Likely requires variant subsystems or mask-init
-   driven selector-index vectors.
-3. **Honor MJCF per-camera `resolution=` attribute** in
-   `MujocoModelInstance::initCameras()` / `MujocoGUI::setCustomResolution`
-   so users can set camera sizes from XML instead of the mask.
-4. **YOLO export regression test**: add a short-sim + export smoke to the
-   `NewFeature` suite with a fixed seed.
+2. ~~Dynamic parser in `mj_gettingStarted.slx`~~ — addressed 2026-04-25
+   via `mj_parser_maskinit.m`; mask-init rebinds bus + port widths on
+   resolution change.
+3. ~~Honor MJCF per-camera `resolution=` attribute~~ — addressed
+   2026-04-25 in `MujocoGUI::initInThread` priority chain
+   (`m->cam_resolution[2*i]` is consulted before `vis.global.off*`).
+4. ~~YOLO export regression test~~ — added 2026-04-25 as
+   `tests/t_YoloExport.m` (NewFeature tag).
 5. **Commit the `wsl-x64-ros2humble.mat` / `raspi-arm64-ros2jazzy.mat` device
    profiles under `tools/deviceProfiles/`** (currently in place but not
    tracked in git on this branch — verify).
@@ -96,10 +111,8 @@ Tracking integration status, known gaps, and upcoming work on the
 
 - ~~MuJoCo 3.7.0 upgrade~~ — landed 2026-04-24 (was 3.4.0 → now 3.7.0).
 - **GLFW 3.4**: optional bump from 3.3.7 (minor API additions, non-breaking).
-- **Linux tarball symlink**: post-install step needed on Linux hosts to
-  recreate `libmujoco.so -> libmujoco.so.3.7.0` inside
-  `lib/linux-x86_64/mujoco/lib/` and `lib/linux-aarch64/mujoco/lib/`.
-  Consider automating this in `install.m` via a WSL shell-out.
+- ~~Linux tarball symlink automation~~ — addressed 2026-04-25 in
+  `install.m` (`ensureLinuxLibmujocoSymlink` + `winPathToWsl`).
 
 ## MuJoCo 3.7 upgrade plan (historical — completed 2026-04-24)
 
