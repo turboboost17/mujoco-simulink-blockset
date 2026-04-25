@@ -351,7 +351,7 @@ guiErrCodes MujocoGUI::init(MujocoModelInstance* mdlInstance, glTarget openglTar
 guiErrCodes MujocoGUI::initInThread(offscreenSize *offSize, bool stopAtOffScreenSizeCalc)
 {
     std::lock_guard<std::recursive_mutex> glLock (glfwMutex); //opengl is not threadsafe or reentrant. lock until it is safe to unlock
-    
+
     glfwSetErrorCallback(&glfwFailCallback);
     if(glfwInit() == 0) 
     {
@@ -426,14 +426,60 @@ guiErrCodes MujocoGUI::initInThread(offscreenSize *offSize, bool stopAtOffScreen
             return OFFSCREEN_TARGET_NOT_SUPPORTED;
         }
 
-        // Per-camera resolution: resize offscreen buffer if custom size requested
-        if (desiredWidth > 0 && desiredHeight > 0)
+        // Resolve the effective offscreen resolution for this camera.
+        //
+        // MuJoCo 3.7 breaking change: mjr_makeContext no longer auto-sizes the
+        // offscreen framebuffer from m->vis.global.offwidth/offheight, and it
+        // also now honors the per-camera <camera resolution="W H"> MJCF attribute
+        // via m->cam_resolution. The new mjr_resizeOffscreen API must be called
+        // explicitly, otherwise mjr_maxViewport returns 0x0 and buffer sizing
+        // (cami.size[i]) comes out as zero -> downstream Simulink bus creation
+        // fails with "Dimensions must be a positive vector".
+        //
+        // Priority for effective size:
+        //   1. desiredWidth/Height (set from the MEX camWidth/camHeight inputs)
+        //   2. per-camera MJCF resolution (m->cam_resolution, 3.7 native)
+        //   3. MJCF global <visual><global offwidth offheight/> (fallback)
+        //   4. Hard fallback 640x480
+        int effWidth  = desiredWidth;
+        int effHeight = desiredHeight;
+        const mjModel* amdl = sceneAssetModel ? sceneAssetModel->get_m() : nullptr;
+        if ((effWidth <= 0 || effHeight <= 0) && amdl != nullptr)
         {
-            mjr_resizeOffscreen(desiredWidth, desiredHeight, &con);
+            if (camId >= 0 && camId < amdl->ncam && amdl->cam_resolution != nullptr)
+            {
+                int cw = amdl->cam_resolution[2*camId + 0];
+                int ch = amdl->cam_resolution[2*camId + 1];
+                if (cw > 0 && ch > 0)
+                {
+                    effWidth  = cw;
+                    effHeight = ch;
+                }
+            }
+        }
+        if ((effWidth <= 0 || effHeight <= 0) && amdl != nullptr)
+        {
+            if (amdl->vis.global.offwidth > 0 && amdl->vis.global.offheight > 0)
+            {
+                effWidth  = amdl->vis.global.offwidth;
+                effHeight = amdl->vis.global.offheight;
+            }
+        }
+        if (effWidth <= 0 || effHeight <= 0)
+        {
+            effWidth  = 640;
+            effHeight = 480;
         }
 
-        // Get viewport size (may be custom or default MJCF global offwidth/offheight)
+        mjr_resizeOffscreen(effWidth, effHeight, &con);
+
+        // Report the actual framebuffer size (now guaranteed non-zero).
         viewport = mjr_maxViewport(&con);
+        if (viewport.width <= 0 || viewport.height <= 0)
+        {
+            viewport.width  = effWidth;
+            viewport.height = effHeight;
+        }
         int W = viewport.width;
         int H = viewport.height;
         if(offSize)
