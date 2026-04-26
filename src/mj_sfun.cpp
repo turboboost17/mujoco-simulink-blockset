@@ -11,6 +11,12 @@
 #include <mutex>
 #include <memory>
 
+#ifdef __linux__
+#include <unistd.h>
+#include <linux/limits.h>
+#include <sys/stat.h>
+#endif
+
 // CONSTANT LIMITS
 #define FILE_PATH_LIMIT 1000
 #define PORT_STRING_LMT 1000
@@ -227,7 +233,72 @@ std::string getXmlFilePath(SimStruct *S)
     const mxArray *fileMexPtr = ssGetSFcnParam(S, XML_PARAM_INDEX);
     char file[FILE_PATH_LIMIT];
     mxGetString(fileMexPtr, file, FILE_PATH_LIMIT-1);
-    return std::string(file);
+    std::string filePath(file);
+
+#ifdef __linux__
+    struct stat st;
+    if (stat(filePath.c_str(), &st) != 0)
+    {
+        std::string basename = filePath;
+        size_t lastSlash = basename.find_last_of("/\\");
+        if (lastSlash != std::string::npos)
+        {
+            basename = basename.substr(lastSlash + 1);
+        }
+
+        char exePath[PATH_MAX];
+        ssize_t len = readlink("/proc/self/exe", exePath, sizeof(exePath) - 1);
+        std::string exeDir;
+        if (len > 0)
+        {
+            exePath[len] = '\0';
+            exeDir = std::string(exePath);
+            size_t dirSlash = exeDir.find_last_of('/');
+            if (dirSlash != std::string::npos)
+            {
+                exeDir = exeDir.substr(0, dirSlash);
+            }
+
+            std::string candidate = exeDir + "/" + basename;
+            if (stat(candidate.c_str(), &st) == 0)
+            {
+                return candidate;
+            }
+
+            std::string wsRoot = exeDir + "/../../../..";
+            std::string pkgDir = exeDir + "/../..";
+            char realPkgDir[PATH_MAX];
+            if (realpath(pkgDir.c_str(), realPkgDir))
+            {
+                std::string pkgDirStr(realPkgDir);
+                size_t pkgSlash = pkgDirStr.find_last_of('/');
+                if (pkgSlash != std::string::npos)
+                {
+                    std::string pkgName = pkgDirStr.substr(pkgSlash + 1);
+                    candidate = wsRoot + "/src/" + pkgName + "/src/" + basename;
+                    if (stat(candidate.c_str(), &st) == 0)
+                    {
+                        char resolvedPath[PATH_MAX];
+                        if (realpath(candidate.c_str(), resolvedPath))
+                        {
+                            return std::string(resolvedPath);
+                        }
+                        return candidate;
+                    }
+                }
+            }
+        }
+
+        if (stat(basename.c_str(), &st) == 0)
+        {
+            return basename;
+        }
+
+        return basename;
+    }
+#endif
+
+    return filePath;
 }
 
 int getIntParam(SimStruct *S, int index)
@@ -342,7 +413,8 @@ static void mdlStart(SimStruct *S)
     // MODEL INIT
     if(sd.mi[miIndex]->initMdl(file, true, false) != 0)
     {
-       ssSetLocalErrorStatus(S,"Unable to initialize model in mdlStart");
+         static std::string initErr = "Unable to load MuJoCo model: " + file;
+         ssSetLocalErrorStatus(S, initErr.c_str());
        return;
     }
 
@@ -524,6 +596,14 @@ static void mdlStart(SimStruct *S)
 #define MDL_UPDATE
 static void mdlUpdate(SimStruct *S, int_T tid)
 {
+    int miIndex = ssGetIWorkValue(S, MI_IW_IDX);
+    if (miIndex < 0 || miIndex >= (int)sd.mi.size() || !sd.mi[miIndex] ||
+        !sd.mi[miIndex]->get_m() || !sd.mi[miIndex]->get_d())
+    {
+        ssSetLocalErrorStatus(S, "MuJoCo model not initialized. Check XML file path.");
+        return;
+    }
+
     if(!sd.renderingThreadStarted)
     {
         sd.renderingThreadStarted = true;
@@ -531,8 +611,6 @@ static void mdlUpdate(SimStruct *S, int_T tid)
     }
 
     // progress simulation by 1 time step in discrete time
-    int miIndex = ssGetIWorkValue(S, MI_IW_IDX);  
-
     vector<double> uVec;
     int_T nInputs = ssGetInputPortWidth(S, CONTROL_PORT_INDEX) - 1; // last index is a dummy
     InputRealPtrsType uPtrs = ssGetInputPortRealSignalPtrs(S, CONTROL_PORT_INDEX);
@@ -578,7 +656,7 @@ void renderingThreadFcn()
         
         for(int camIndex = 0; camIndex<camCount; camIndex++)
         {
-            offscreenSize offSize;
+            offscreenSize offSize = {0, 0};
             auto guiStatus = sd.mi[miIndex]->offscreenCam[camIndex]->initInThread(&offSize);
             if(guiStatus != NO_ERR)
             {
@@ -615,6 +693,7 @@ void renderingThreadFcn()
             sd.renderingInitErr = guiStatus;
             // lets not stop simulation due to a rendering issue. 
             // throw a warning at the end of simulation         
+            continue;
         }
         glfwSetCursorPosCallback(sd.mg[index]->window, mouseMoveCallback);
         glfwSetMouseButtonCallback(sd.mg[index]->window, mouseButtonCallback);
@@ -685,6 +764,13 @@ void renderingThreadFcn()
 static void mdlOutputs(SimStruct *S, int_T tid)
 {
     int miIndex = ssGetIWorkValue(S, MI_IW_IDX);
+    if (miIndex < 0 || miIndex >= (int)sd.mi.size() || !sd.mi[miIndex] ||
+        !sd.mi[miIndex]->get_m() || !sd.mi[miIndex]->get_d())
+    {
+        ssSetLocalErrorStatus(S, "MuJoCo model not initialized. Check XML file path.");
+        return;
+    }
+
     auto &miTemp = sd.mi[miIndex]; 
     
     // Copy sensors to output
