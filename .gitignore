@@ -37,6 +37,7 @@ references/
 # mj_sfun.mexw64.old, mjLib.slx.old). install.m's rename-then-copy
 # trick uses these when the primary file is locked by another MATLAB.
 *.old
+*.old_*
 # MEX binaries and PDB debug symbols — never tracked; install.m builds
 # them locally or fetches them from the MuJoCo release.
 *.mex*

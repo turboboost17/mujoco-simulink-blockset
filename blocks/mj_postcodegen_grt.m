@@ -7,7 +7,7 @@ function mj_postcodegen_grt(buildInfo)
 
     buildInfo.addCompileFlags('-O3 -fPIC', 'OPTS');
 
-    buildInfo.addSourcePaths(getpref('mujoco', 'srcPaths'));
+    buildInfo.addSourcePaths(normalizeBuildPaths(getpref('mujoco', 'srcPaths')));
     buildInfo.addSourceFiles({'mj_sfun.cpp', 'mj.cpp'});
 
     modelName = buildInfo.ComponentName;
@@ -23,9 +23,9 @@ end
 
 function addWindowsBuildArtifacts(buildInfo)
 % Add Windows .lib import libraries for local MEX/Simulink builds
-    buildInfo.addIncludePaths(getpref('mujoco', 'incPaths'));
+    buildInfo.addIncludePaths(normalizeBuildPaths(getpref('mujoco', 'incPaths')));
 
-    linkPaths = getpref('mujoco', 'linkPaths');
+    linkPaths = normalizeBuildPaths(getpref('mujoco', 'linkPaths'));
     linkObjs = {'glfw3dll.lib', 'mujoco.lib'};
     libPriority = '';
     libPreCompiled = true;
@@ -62,17 +62,33 @@ function addRos2BuildArtifacts(buildInfo)
     archPaths = ros2Paths.(archKey);
 
     % Include paths: use the Linux MuJoCo headers + source path
-    srcPaths = getpref('mujoco', 'srcPaths');
+    srcPaths = normalizeBuildPaths(getpref('mujoco', 'srcPaths'));
     ros2IncPaths = {archPaths.incPath, srcPaths{1}};
-    buildInfo.addIncludePaths(ros2IncPaths);
+    buildInfo.addIncludePaths(normalizeBuildPaths(ros2IncPaths));
 
     % Bundle libmujoco.so from the prefetched Linux binaries
     mjVer = getpref('mujoco', 'MJ_VER');
     mjSoFile = ['libmujoco.so.', mjVer];
-    libPreCompiled = true;
-    libLinkOnly = true;
-    buildInfo.addLinkObjects(mjSoFile, archPaths.libPath, ...
-        '', libPreCompiled, libLinkOnly);
+    mjSoLinkFile = 'libmujoco.so';
+    buildDir = getCodegenBuildDir(buildInfo.ComponentName);
+    srcMjSo = fullfile(archPaths.libPath, mjSoFile);
+    dstMjSo = fullfile(buildDir, mjSoFile);
+    dstMjSoLink = fullfile(buildDir, mjSoLinkFile);
+    if ~isfile(srcMjSo)
+        error('mujoco:postcodegen:missingRos2So', ...
+            ['Expected ROS2 MuJoCo library not found: %s\n' ...
+             'Run install(''ros2'') to refresh MuJoCo target libraries and prefs.'], ...
+            srcMjSo);
+    end
+    copyfile(srcMjSo, dstMjSo, 'f');
+    copyfile(srcMjSo, dstMjSoLink, 'f');
+
+    buildInfo.addNonBuildFiles(normalizeBuildPath(dstMjSo), '', 'Copy');
+    buildInfo.addNonBuildFiles(normalizeBuildPath(dstMjSoLink), '', 'Copy');
+    buildInfo.addSysLibPaths(normalizeBuildPath(buildDir));
+    buildInfo.addSysLibs('mujoco', normalizeBuildPath(buildDir));
+    buildInfo.addLinkFlags('-L${PROJECT_SOURCE_DIR}/src');
+    buildInfo.addLinkFlags('-lmujoco');
 
     % Link GLFW from system package (libglfw3-dev must be installed on target)
     buildInfo.addLinkFlags('-lglfw');
@@ -81,17 +97,12 @@ function addRos2BuildArtifacts(buildInfo)
     buildInfo.addLinkFlags('-lGL');
 
     % Bundle MJCF XML model files referenced by MuJoCo Plant blocks
-    xmlFiles = bundleMjcfFiles(buildInfo);
-
-    % Patch CMakeLists.txt to install .so and XML files properly
-    patchRos2CMakeLists(buildInfo, mjSoFile, xmlFiles);
+    bundleMjcfFiles(buildInfo);
 end
 
-function xmlFiles = bundleMjcfFiles(buildInfo)
+function bundleMjcfFiles(buildInfo)
 % Copy MJCF XML files referenced by MuJoCo Plant blocks into the build
 % directory so they are included in the deployment archive.
-% Returns a cell array of XML filenames that were bundled.
-    xmlFiles = {};
     modelName = buildInfo.ComponentName;
     mjBlocks = find_system(modelName, 'LookUnderMasks', 'all', ...
         'FollowLinks', 'on', 'MaskType', 'MuJoCo Plant');
@@ -100,13 +111,7 @@ function xmlFiles = bundleMjcfFiles(buildInfo)
         return
     end
 
-        buildDirName = [modelName, '_ert_rtw'];
-        [~, currentDirName] = fileparts(pwd);
-        if strcmp(currentDirName, buildDirName)
-            buildDir = pwd;
-        else
-            buildDir = fullfile(pwd, buildDirName);
-        end
+    buildDir = getCodegenBuildDir(modelName);
 
     for i = 1:numel(mjBlocks)
         xmlPath = get_param(mjBlocks{i}, 'xmlFile');
@@ -119,60 +124,7 @@ function xmlFiles = bundleMjcfFiles(buildInfo)
         if ~isfile(destFile)
             copyfile(xmlPath, destFile);
         end
-            buildInfo.addNonBuildFiles(xmlFileName, buildDir, 'Copy');
-        xmlFiles{end+1} = xmlFileName; %#ok<AGROW>
-    end
-end
-
-function patchRos2CMakeLists(buildInfo, mjSoFile, xmlFiles)
-% Patch the generated CMakeLists.txt to install libmujoco.so and XML files
-% into the proper ament package directories so they are found at runtime
-% without needing LD_LIBRARY_PATH.
-    modelName = buildInfo.ComponentName;
-    pkgName = lower(modelName);
-
-    % Search for the generated CMakeLists.txt
-    candidates = { ...
-        fullfile(pwd, '..', pkgName, 'CMakeLists.txt'), ...
-        fullfile(pwd, '..', '..', 'src', pkgName, 'CMakeLists.txt'), ...
-        fullfile(pwd, '..', 'src', pkgName, 'CMakeLists.txt') ...
-    };
-
-    existingFiles = candidates(cellfun(@isfile, candidates));
-    existingFiles = unique(existingFiles, 'stable');
-
-    if isempty(existingFiles)
-        warning('mujoco:postcodegen:noCMakeLists', ...
-            'Could not find CMakeLists.txt to patch install rules for %s.', pkgName);
-        return
-    end
-
-    % Build install rules block
-    rules = sprintf('\n# MuJoCo install rules (auto-generated by mj_postcodegen_grt)\n');
-    rules = [rules, sprintf('install(FILES ${PROJECT_SOURCE_DIR}/src/%s DESTINATION lib)\n', mjSoFile)];
-    for i = 1:numel(xmlFiles)
-        rules = [rules, ...
-            sprintf('install(FILES ${PROJECT_SOURCE_DIR}/src/%s DESTINATION lib/${PROJECT_NAME})\n', ...
-            xmlFiles{i})]; %#ok<AGROW>
-    end
-
-    for i = 1:numel(existingFiles)
-        cmakeFile = existingFiles{i};
-        txt = fileread(cmakeFile);
-
-        % Skip if already patched
-        if contains(txt, '# MuJoCo install rules')
-            continue
-        end
-
-        % Insert before ament_package()
-        txt = strrep(txt, 'ament_package()', [rules, 'ament_package()']);
-
-        fid = fopen(cmakeFile, 'w');
-        fprintf(fid, '%s', txt);
-        fclose(fid);
-
-        fprintf('Patched %s with MuJoCo install rules.\n', cmakeFile);
+        buildInfo.addNonBuildFiles(normalizeBuildPath(destFile), '', 'Copy');
     end
 end
 
@@ -220,4 +172,30 @@ function arch = getRos2TargetArch(buildInfo)
             end
         end
     end
+end
+
+function buildDir = getCodegenBuildDir(modelName)
+    buildDirName = [modelName, '_ert_rtw'];
+    [~, currentDirName] = fileparts(pwd);
+    if strcmp(currentDirName, buildDirName)
+        buildDir = pwd;
+    else
+        buildDir = fullfile(pwd, buildDirName);
+    end
+end
+
+function paths = normalizeBuildPaths(paths)
+% Convert Windows backslashes before paths enter codegen/ROS packaging.
+% Some downstream ROS ProjectBuilder code formats file paths through sprintf;
+% a path like E:\Documents then triggers invalid escape warnings (\D) and
+% broken globbing. MATLAB, MSVC, CMake, and Colcon all accept forward slashes
+% on Windows.
+    if ischar(paths) || isstring(paths)
+        paths = {char(paths)};
+    end
+    paths = cellfun(@normalizeBuildPath, paths, 'UniformOutput', false);
+end
+
+function pathOut = normalizeBuildPath(pathIn)
+    pathOut = strrep(char(pathIn), '\', '/');
 end
