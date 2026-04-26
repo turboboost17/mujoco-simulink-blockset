@@ -704,6 +704,8 @@ void renderingThreadFcn()
     // Visualization window and offscreen buffer rendering loop
     while(1)
     {
+        bool didRenderWork = false;
+
         // Visualization window(s)
         for(int index=0; index<sd.mg.size(); index++)
         {
@@ -713,6 +715,7 @@ void renderingThreadFcn()
                 if(sd.mg[index]->loopInThread() == 0) 
                 {
                     sd.mg[index]->lastRenderClockTime = std::chrono::steady_clock::now();
+                    didRenderWork = true;
                 }
             }
         }
@@ -736,11 +739,13 @@ void renderingThreadFcn()
                 }
                 miTemp->shouldCameraRenderNow = false;
                 miTemp->cameraSync.release();
+                didRenderWork = true;
                 
             }
         }
         // If there is nothing to render, donot keep spinning while loop
         if(sd.signalThreadExit == true) break;
+        if(!didRenderWork) std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
     // Release visualization resources
@@ -798,8 +803,13 @@ static void mdlOutputs(SimStruct *S, int_T tid)
         if( elapsedTimeSinceRender > (miTemp->cameraRenderInterval-0.00001) )
         {
             // maintain camera and physics in sync at required camera sample time
-            miTemp->shouldCameraRenderNow = true;
+            if(miTemp->shouldCameraRenderNow == false)
+            {
+                miTemp->shouldCameraRenderNow = true;
+            }
+#ifdef MATLAB_MEX_FILE
             miTemp->cameraSync.acquire(); // blocking till offscreen buffer is rendered
+#endif
 
             // ssPrintf("sim time=%lf & render time=%lf\n", miTemp->get_d()->time, miTemp->lastRenderTime);
         }

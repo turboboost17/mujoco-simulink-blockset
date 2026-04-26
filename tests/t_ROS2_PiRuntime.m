@@ -31,6 +31,7 @@ classdef t_ROS2_PiRuntime < matlab.unittest.TestCase
                 Save=false, SeedROS2Workspace=false);
             set_param(modelName, 'SimulationMode', 'normal');
             set_param(modelName, 'ExtMode', 'off');
+            t_ROS2_PiRuntime.configureRuntimeRendering(modelName);
 
             try
                 rtwbuild(modelName);
@@ -61,9 +62,12 @@ classdef t_ROS2_PiRuntime < matlab.unittest.TestCase
                 'not stay running on the Pi. Log:\n%s'], modelName, ...
                 t_ROS2_PiRuntime.remoteFileText(device, launch.LogFile)));
 
-            imageMessages = t_ROS2_PiRuntime.receiveMessages(imageSubscriber, 3, 45);
+            [imageMessages, receivedImageCount, constantImageCount] = ...
+                t_ROS2_PiRuntime.receiveImageMessages(imageSubscriber, 3, 90);
             testCase.assertGreaterThanOrEqual(numel(imageMessages), 3, ...
-                'Expected at least 3 /block_camera messages from the deployed node.');
+                sprintf(['Expected at least 3 nonconstant /block_camera messages ' ...
+                'from the deployed node. Received %d image messages; %d had ' ...
+                'constant startup data.'], receivedImageCount, constantImageCount));
 
             for messageIndex = 1:numel(imageMessages)
                 t_ROS2_PiRuntime.verifyImageMessage(testCase, ...
@@ -99,6 +103,33 @@ classdef t_ROS2_PiRuntime < matlab.unittest.TestCase
                     messages{end+1} = message; %#ok<AGROW>
                 end
             end
+        end
+
+        function [messages, receivedCount, constantCount] = receiveImageMessages( ...
+                subscriber, desiredCount, timeoutSeconds)
+            messages = cell(1, 0);
+            receivedCount = 0;
+            constantCount = 0;
+            startTime = tic;
+            while numel(messages) < desiredCount && toc(startTime) < timeoutSeconds
+                remaining = timeoutSeconds - toc(startTime);
+                receiveTimeout = max(0.1, min(5, remaining));
+                [message, received] = receive(subscriber, receiveTimeout);
+                if received
+                    receivedCount = receivedCount + 1;
+                    if t_ROS2_PiRuntime.isNonconstantImageMessage(message)
+                        messages{end+1} = message; %#ok<AGROW>
+                    else
+                        constantCount = constantCount + 1;
+                    end
+                end
+            end
+        end
+
+        function isNonconstant = isNonconstantImageMessage(message)
+            data = t_ROS2_PiRuntime.messageField(message, 'data');
+            dataVector = data(:);
+            isNonconstant = ~isempty(dataVector) && numel(unique(dataVector)) > 1;
         end
 
         function verifyImageMessage(testCase, message, messageIndex)
@@ -224,6 +255,16 @@ classdef t_ROS2_PiRuntime < matlab.unittest.TestCase
             end
         end
 
+        function configureRuntimeRendering(modelName)
+            mjBlocks = find_system(modelName, 'LookUnderMasks', 'all', ...
+                'FollowLinks', 'on', 'MaskType', 'MuJoCo Plant');
+            for blockIndex = 1:numel(mjBlocks)
+                set_param(mjBlocks{blockIndex}, 'renderingType', 'None');
+                set_param(mjBlocks{blockIndex}, 'camWidth', '[16 320]');
+                set_param(mjBlocks{blockIndex}, 'camHeight', '[16 240]');
+            end
+        end
+
         function launch = startNodeUnderXvfb(testCase, device, modelName)
             packageName = lower(modelName);
             workspace = char(device.ROS2Workspace);
@@ -298,8 +339,12 @@ classdef t_ROS2_PiRuntime < matlab.unittest.TestCase
                 'pid=$(cat %s 2>/dev/null || true); ' ...
                 'if [ -n "$pid" ]; then ' ...
                 'kill -TERM -"$pid" 2>/dev/null || ' ...
-                'kill -TERM "$pid" 2>/dev/null || true; fi; ' ...
-                'pkill -TERM -f %s 2>/dev/null || true'], ...
+                'kill -TERM "$pid" 2>/dev/null || true; ' ...
+                'for i in 1 2 3 4 5 6; do ' ...
+                'kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done; ' ...
+                'kill -KILL -"$pid" 2>/dev/null || ' ...
+                'kill -KILL "$pid" 2>/dev/null || true; fi; ' ...
+                'pkill -KILL -f %s 2>/dev/null || true'], ...
                 t_ROS2_PiRuntime.shellQuote(launch.PidFile), ...
                 t_ROS2_PiRuntime.shellQuote(launch.Executable));
             command = ['bash -lc ' t_ROS2_PiRuntime.shellQuote(innerCommand)];
