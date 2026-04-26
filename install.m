@@ -235,7 +235,10 @@ function ensureLinuxLibmujocoSymlink(libDir, mjVer)
     if isunix
         % Native Linux/macOS: create symlink directly.
         if isfile(linkName)
-            try, delete(linkName); catch, end %#ok<NOSEM>
+            try
+                delete(linkName);
+            catch
+            end
         end
         cmd = sprintf('ln -sf "%s" "%s"', target, linkName);
         [status, out] = system(cmd);
@@ -295,22 +298,21 @@ function safeCopyDll(srcFile, destDir)
 % Windows refuses to overwrite a DLL while another process (typically
 % another MATLAB instance with mj_sfun loaded) has it mapped. But it
 % *does* allow renaming the locked file. So: rename the existing copy
-% aside with a .old suffix, then copy the new file into place. The
-% .old file is harmless and ignored by .gitignore; it can be removed
-% after all MATLAB sessions release the mex.
+% aside with a unique .old_* suffix, then copy the new file into place.
+% The .old_* file is harmless and ignored by .gitignore; it can be
+% removed after all MATLAB sessions release the mex.
     [~, name, ext] = fileparts(srcFile);
     destFile = fullfile(destDir, [name, ext]);
     if isfile(destFile)
-        oldFile = [destFile, '.old'];
-        if isfile(oldFile)
-            try, delete(oldFile); catch, end %#ok<NOSEM>
-        end
+        stamp = char(datetime('now', 'Format', 'yyyyMMdd_HHmmss_SSS'));
+        oldFile = [destFile, '.old_', stamp];
         try
             movefile(destFile, oldFile, 'f');
-        catch
-            % movefile can also fail if the .old sibling is itself
-            % locked by a prior session. Fall through to copyfile and
-            % let MATLAB surface the real error.
+        catch ME
+            error('mujoco:install:dllLocked', ...
+                ['Could not move locked destination DLL aside: %s\n' ...
+                 'Close MATLAB/Simulink sessions using this DLL or run clear mex there, then retry.\n' ...
+                 'Original error: %s'], destFile, ME.message);
         end
     end
     copyfile(srcFile, destDir, 'f');

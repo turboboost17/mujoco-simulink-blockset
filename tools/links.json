@@ -92,6 +92,12 @@
         },
         {
             "name": "mujoco",
+            "arch": "linux-x86_64",
+            "version": "3.7.0",
+            "downloadLink": "https://github.com/google-deepmind/mujoco/releases/download/3.7.0/mujoco-3.7.0-linux-x86_64.tar.gz"
+        },
+        {
+            "name": "mujoco",
             "arch": "linux-aarch64",
             "version": "3.7.0",
             "downloadLink": "https://github.com/google-deepmind/mujoco/releases/download/3.7.0/mujoco-3.7.0-linux-aarch64.tar.gz"
