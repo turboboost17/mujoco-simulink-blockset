@@ -16,6 +16,8 @@ function results = runAllTests(varargin)
 %   RenderOff   : rendering disabled (performance path)
 %   ROS2WSL     : codegen targeting ROS2 on WSL
 %   ROS2Pi      : codegen/deploy targeting Raspberry Pi
+%   ROS2Runtime : ROS2 runtime publish/subscribe checks
+%   ROS2PiRuntime : ROS2 runtime checks on Raspberry Pi
 %   NewFeature  : tests for features merged from seg repo
 %
 % Results are written to tests/results/YYYYMMDD_HHMMSS.json and the most

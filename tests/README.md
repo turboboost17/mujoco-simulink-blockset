@@ -16,7 +16,7 @@ Entry point:
 
 - `Core`, `CommandInputs`, `SensorOutputs`
 - `Rendering`, `RenderOff`, `RGB`, `Depth`, `Seg`, `Combo`
-- `ROS2WSL`, `ROS2Pi`
+- `ROS2WSL`, `ROS2Pi`, `ROS2Runtime`, `ROS2PiRuntime`
 - `NewFeature`, `PerCameraResolution`, `SegmentationIDs`, `SegmentationVideo`, `Xacro`
 
 New-feature tests are expected to fail / be skipped before their
