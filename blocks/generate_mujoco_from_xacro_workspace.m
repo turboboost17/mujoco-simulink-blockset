@@ -58,7 +58,8 @@ outputDir = localCanonicalPath(outputDir);
 
 compileExe = char(p.Results.CompileExe);
 if isempty(compileExe)
-    compileExe = fullfile(workspaceRoot, '..', 'mujoco-simulink-blockset', 'lib', 'win64', 'mujoco', 'bin', 'compile.exe');
+    blocksetRoot = fileparts(fileparts(mfilename('fullpath')));
+    compileExe = fullfile(blocksetRoot, 'lib', 'win64', 'mujoco', 'bin', 'compile.exe');
 end
 if ~isfile(compileExe)
     error('MuJoCo compile.exe not found: %s', compileExe);
