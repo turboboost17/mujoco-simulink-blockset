@@ -25,7 +25,7 @@ MATLAB R2024b or newer is recommended. Install MATLAB with the above products an
 - MuJoCo 3.7
 - GLFW 3.3.7 (3.4 optional)
 
-*Note - You will need to rebuild the S-Function because the repo is not tracking the binary files for this internal repo*.
+*Note - You will need to rebuild the S-Function when using a source checkout because the repository does not track generated binary files.*
 
 ### Simulink Blockset for MuJoCo
     
@@ -62,7 +62,7 @@ Inputs can either be a Simulink Bus or a vector.
 
 Sensors are output as a Simulink Bus.
 
-RGB and Depth buffers from cameras are output as vectors. These can be decoded to Simulink image/matrix using the RGB and Depth Parser blocks.  This internal version supports orthographic depth cameras with accurate depth measurements from inside the Depth Parser blocks.  For orthographic cameras it must be set to orthographic both in MuJoCo and the Depth camera block.
+RGB and Depth buffers from cameras are output as vectors. These can be decoded to Simulink image/matrix using the RGB and Depth Parser blocks.  This version supports orthographic depth cameras with accurate depth measurements from inside the Depth Parser blocks.  For orthographic cameras it must be set to orthographic both in MuJoCo and the Depth camera block.
 
 *Resolution changes — global `<global offwidth/offheight>`, MJCF per-camera `<camera resolution="W H">`, or the per-camera mask-driven `camWidth`/`camHeight` — now propagate to the RGB and Depth Parser blocks automatically via `mj_parser_maskinit.m`. Restarting MATLAB or manually clearing the workspace bus definitions is no longer required.*
 
@@ -141,7 +141,7 @@ Steps for building/rebuilding the C-MEX S-Function code. These instructions are 
   - (or) [MinGW (GCC 12.2.0 or higher)](https://community.chocolatey.org/packages/mingw)
 - Clone this repository
     
-    `$ git clone git@github.com:mathworks-robotics/mujoco-simulink-blockset.git`
+    `$ git clone git@github.com:turboboost17/mujoco-simulink-blockset.git`
 - Launch MATLAB and open the repository folder
     - `>> install`
 - Open tools/ 
@@ -230,9 +230,13 @@ Building glfw from source ([glfw main - commit id](https://github.com/glfw/glfw/
 The license is available in the license.txt file within this repository. Similiar to BSD or MIT.
 
 ## Acknowledgments
-Cite this work as,
+For this fork, reference the repository and release or commit used:
 
-Manoj Velmurugan.  Simulink Blockset for MuJoCo Simulator (https://github.com/mathworks-robotics/mujoco-simulink-blockset), GitHub. Retrieved date. 
+Simulink Blockset for MuJoCo Simulator (https://github.com/turboboost17/mujoco-simulink-blockset), GitHub. Retrieved date.
+
+This repository builds on the original MathWorks Robotics blockset:
+
+Manoj Velmurugan. Simulink Blockset for MuJoCo Simulator (https://github.com/mathworks-robotics/mujoco-simulink-blockset), GitHub. Retrieved date.
 
 
 Refer to the [MuJoCo repository](https://github.com/deepmind/mujoco) for guidelines on citing the MuJoCo physics engine.
