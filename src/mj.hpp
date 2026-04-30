@@ -20,6 +20,8 @@
 
 // using namespace std::chrono_literals;
 
+mjModel* mj_loadXMLWithPlugins(const std::string& file, const mjVFS* vfs, char* error, int error_sz);
+
 class sensorInterface
 {
     public:
