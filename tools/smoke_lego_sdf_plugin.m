@@ -8,10 +8,13 @@ arguments
     opts.Build (1,1) logical = true
     opts.RunNative (1,1) logical = true
     opts.RunSimulink (1,1) logical = true
+    opts.MaxSdfInitPoints (1,1) double = 8
+    opts.MaxSdfIterations (1,1) double = 8
 end
 
 repoRoot = fileparts(fileparts(mfilename('fullpath')));
 xmlPath = fullfile(repoRoot, 'examples', 'lego_sdf_2x4.xml');
+localAssertConservativeSdfOptions(xmlPath, opts.MaxSdfInitPoints, opts.MaxSdfIterations);
 addpath(fullfile(repoRoot, 'blocks'), '-begin');
 addpath(fullfile(repoRoot, 'tools'), '-begin');
 
@@ -97,6 +100,40 @@ native.command = sprintf('%s %s %s', localQuote(smokeExe), ...
 fprintf('%s', native.output);
 if native.status ~= 0
     error('legoSdfSmoke:nativeFailed', 'Native smoke failed with status %d.', native.status);
+end
+end
+
+function localAssertConservativeSdfOptions(xmlPath, maxInitPoints, maxIterations)
+xmlDoc = xmlread(xmlPath);
+optionNodes = xmlDoc.getElementsByTagName('option');
+if optionNodes.getLength() == 0
+    error('legoSdfSmoke:missingSdfOptions', ...
+        'Smoke MJCF must explicitly set conservative sdf_initpoints and sdf_iterations.');
+end
+
+optionNode = optionNodes.item(0);
+initPoints = localRequiredIntAttribute(optionNode, 'sdf_initpoints');
+iterations = localRequiredIntAttribute(optionNode, 'sdf_iterations');
+
+if initPoints > maxInitPoints || iterations > maxIterations
+    error('legoSdfSmoke:sdfTetBudget', ...
+        ['Smoke MJCF SDF settings are too high for crash-safe validation: ', ...
+         'sdf_initpoints=%d (max %d), sdf_iterations=%d (max %d).'], ...
+        initPoints, maxInitPoints, iterations, maxIterations);
+end
+end
+
+function value = localRequiredIntAttribute(node, attributeName)
+if ~node.hasAttribute(attributeName)
+    error('legoSdfSmoke:missingSdfOption', ...
+        'Smoke MJCF option is missing required attribute: %s', attributeName);
+end
+
+rawValue = char(node.getAttribute(attributeName));
+value = str2double(rawValue);
+if ~isfinite(value) || fix(value) ~= value
+    error('legoSdfSmoke:invalidSdfOption', ...
+        'Smoke MJCF option %s must be an integer, got: %s', attributeName, rawValue);
 end
 end
 

@@ -31,3 +31,5 @@ result = smoke_lego_sdf_plugin;
 ```
 
 The smoke helper rebuilds the plugin, runs the native MuJoCo loader executable, checks `mj_sampletime` and `mj_labelmap_mex`, then runs a temporary no-render Simulink model around `mj_sfun`.
+
+Keep smoke and demo MJCFs conservative with `sdf_initpoints` and `sdf_iterations`. MuJoCo can become unstable or crash if SDF visualization asks it to generate or show too many tetrahedra; `smoke_lego_sdf_plugin` fails fast above its default budget of `8` init points and `8` iterations unless you explicitly override the limits.
