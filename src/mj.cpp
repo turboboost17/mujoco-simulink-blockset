@@ -1,5 +1,9 @@
 // Copyright 2022-2023 The MathWorks, Inc.
 #include "mj.hpp"
+#include <algorithm>
+#include <cctype>
+#include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <stdlib.h>
 #include <string.h> 
@@ -11,7 +15,146 @@ std::recursive_mutex glfwMutex;
 // OpenGL is not reentrant (and not thread safe). 
 // Lock the graphics library so that no other thread can use opengl.
 
+namespace
+{
+std::mutex pluginLoadMutex;
+bool pluginLibrariesLoaded = false;
+
+void addCandidate(std::vector<std::filesystem::path>& candidates, const std::filesystem::path& candidate)
+{
+    if(candidate.empty())
+    {
+        return;
+    }
+
+    std::filesystem::path normalized = candidate.lexically_normal();
+    if(std::find(candidates.begin(), candidates.end(), normalized) == candidates.end())
+    {
+        candidates.push_back(normalized);
+    }
+}
+
+void addRootCandidates(std::vector<std::filesystem::path>& candidates, const std::filesystem::path& root)
+{
+    addCandidate(candidates, root / "bin" / "mujoco_plugin");
+
+#ifdef _WIN32
+    const std::vector<std::string> archDirs = {"win64"};
+#elif defined(__aarch64__)
+    const std::vector<std::string> archDirs = {"linux-aarch64"};
+#else
+    const std::vector<std::string> archDirs = {"linux-x86_64", "glnxa64"};
+#endif
+
+    for(const auto& archDir : archDirs)
+    {
+        addCandidate(candidates, root / "lib" / archDir / "mujoco" / "bin" / "mujoco_plugin");
+    }
+}
+
+void addAncestorCandidates(std::vector<std::filesystem::path>& candidates, const std::filesystem::path& start)
+{
+    for(std::filesystem::path cursor = start; !cursor.empty(); )
+    {
+        addRootCandidates(candidates, cursor);
+        std::filesystem::path parent = cursor.parent_path();
+        if(parent == cursor)
+        {
+            break;
+        }
+        cursor = parent;
+    }
+}
+
+std::vector<std::filesystem::path> pluginDirectoryCandidates(const std::string& xmlFile)
+{
+    std::vector<std::filesystem::path> candidates;
+
+    if(const char* envPluginDir = std::getenv("MUJOCO_PLUGIN_DIR"))
+    {
+        addCandidate(candidates, envPluginDir);
+    }
+
+    std::error_code ec;
+    if(!xmlFile.empty())
+    {
+        std::filesystem::path xmlPath(xmlFile);
+        std::filesystem::path absoluteXmlPath = std::filesystem::absolute(xmlPath, ec);
+        if(!ec)
+        {
+            addAncestorCandidates(candidates, absoluteXmlPath.parent_path());
+        }
+        else
+        {
+            ec.clear();
+            addAncestorCandidates(candidates, xmlPath.parent_path());
+        }
+    }
+
+    std::filesystem::path cwd = std::filesystem::current_path(ec);
+    if(!ec)
+    {
+        addRootCandidates(candidates, cwd);
+    }
+
+    return candidates;
+}
+
+bool hasPluginLibrary(const std::filesystem::path& directory)
+{
+    std::error_code ec;
+    if(!std::filesystem::is_directory(directory, ec))
+    {
+        return false;
+    }
+
+    for(std::filesystem::directory_iterator it(directory, ec), end; it != end && !ec; it.increment(ec))
+    {
+        if(!it->is_regular_file(ec))
+        {
+            continue;
+        }
+
+        std::string extension = it->path().extension().string();
+        std::transform(extension.begin(), extension.end(), extension.begin(),
+            [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+
+        if(extension == ".dll" || extension == ".so" || extension == ".dylib")
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void loadPluginLibrariesForXml(const std::string& xmlFile)
+{
+    std::lock_guard<std::mutex> lock(pluginLoadMutex);
+    if(pluginLibrariesLoaded)
+    {
+        return;
+    }
+
+    for(const auto& pluginDir : pluginDirectoryCandidates(xmlFile))
+    {
+        if(hasPluginLibrary(pluginDir))
+        {
+            mj_loadAllPluginLibraries(pluginDir.string().c_str(), nullptr);
+            pluginLibrariesLoaded = true;
+            return;
+        }
+    }
+}
+}
+
 using std::shared_ptr;
+
+mjModel* mj_loadXMLWithPlugins(const std::string& file, const mjVFS* vfs, char* error, int error_sz)
+{
+    loadPluginLibrariesForXml(file);
+    return mj_loadXML(file.c_str(), vfs, error, error_sz);
+}
 
 // Aligned malloc - Visual Studio Specific implementation
 // #include <malloc.h>
@@ -25,7 +168,7 @@ using std::shared_ptr;
 int MujocoModelInstance::initMdl(std::string file, bool shouldInitCam, bool shouldGetCami)
 {
     char err[1000] = "err";
-    m = mj_loadXML(file.c_str(), 0, err, 1000);
+    m = mj_loadXMLWithPlugins(file, 0, err, 1000);
     if (!m) 
     {
         return -1;

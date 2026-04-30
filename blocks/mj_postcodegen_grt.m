@@ -5,14 +5,18 @@ function mj_postcodegen_grt(buildInfo)
 %   - ROS2 (Colcon Tools): bundles libmujoco.so and links system GLFW
 % Copyright 2022-2026 The MathWorks, Inc.
 
-    buildInfo.addCompileFlags('-O3 -fPIC', 'OPTS');
-
-    buildInfo.addSourcePaths(normalizeBuildPaths(getpref('mujoco', 'srcPaths')));
-    buildInfo.addSourceFiles({'mj_sfun.cpp', 'mj.cpp'});
-
     modelName = buildInfo.ComponentName;
     toolchain = get_param(modelName, 'Toolchain');
     isRos2Build = strcmp(toolchain, 'Colcon Tools');
+
+    if ispc && ~isRos2Build
+        buildInfo.addCompileFlags('/O2 /std:c++17', 'OPTS');
+    else
+        buildInfo.addCompileFlags('-O3 -fPIC -std=c++17', 'OPTS');
+    end
+
+    buildInfo.addSourcePaths(normalizeBuildPaths(getpref('mujoco', 'srcPaths')));
+    buildInfo.addSourceFiles({'mj_sfun.cpp', 'mj.cpp'});
 
     if isRos2Build
         addRos2BuildArtifacts(buildInfo);

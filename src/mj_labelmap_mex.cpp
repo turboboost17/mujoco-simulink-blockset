@@ -70,7 +70,7 @@ public:
 
         // --- load model ------------------------------------------------------
         char err[1000] = "";
-        mjModel* m = mj_loadXML(xmlPath.c_str(), nullptr, err, 1000);
+        mjModel* m = mj_loadXMLWithPlugins(xmlPath, nullptr, err, 1000);
         if (!m) {
             error(std::string("mj_loadXML failed: ") + err);
         }
