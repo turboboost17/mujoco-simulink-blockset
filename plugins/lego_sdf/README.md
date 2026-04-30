@@ -32,4 +32,12 @@ result = smoke_lego_sdf_plugin;
 
 The smoke helper rebuilds the plugin, runs the native MuJoCo loader executable, checks `mj_sampletime` and `mj_labelmap_mex`, then runs a temporary no-render Simulink model around `mj_sfun`.
 
+For contact-settling work, the build also creates a native metric executable:
+
+```text
+lego_sdf_stability <plugin_dir> <model.xml> [body_name=brick_2] [duration=3] [settle_start=1]
+```
+
+It steps the model headlessly and reports a scalar `score` plus final/RMS body speeds, pose drift, contact penetration, contact count, solver iterations, warnings, and real-time factor. Lower score is better; `stability_pass=1` means the named body settled below the current conservative thresholds.
+
 Keep smoke and demo MJCFs conservative with `sdf_initpoints` and `sdf_iterations`. MuJoCo can become unstable or crash if SDF visualization asks it to generate or show too many tetrahedra; `smoke_lego_sdf_plugin` fails fast above its default budget of `8` init points and `8` iterations unless you explicitly override the limits.

@@ -15,6 +15,7 @@ end
 repoRoot = fileparts(fileparts(mfilename('fullpath')));
 xmlPath = fullfile(repoRoot, 'examples', 'lego_sdf_2x4.xml');
 localAssertConservativeSdfOptions(xmlPath, opts.MaxSdfInitPoints, opts.MaxSdfIterations);
+expectedSampleTime = localReadRequiredOptionDouble(xmlPath, 'timestep');
 addpath(fullfile(repoRoot, 'blocks'), '-begin');
 addpath(fullfile(repoRoot, 'tools'), '-begin');
 
@@ -52,7 +53,7 @@ if opts.RunNative
 end
 
 result.sampleTime = mj_sampletime(xmlPath);
-if abs(result.sampleTime - 0.002) > 1e-12
+if abs(result.sampleTime - expectedSampleTime) > 1e-12
     error('legoSdfSmoke:sampleTime', 'Unexpected sample time: %.17g', result.sampleTime);
 end
 
@@ -71,7 +72,7 @@ if result.ngeom < 2 || result.nbody < 2 || result.nscenegeom < 2
 end
 
 if opts.RunSimulink
-    result.simTime = localRunSfunSmoke(xmlPath);
+    result.simTime = localRunSfunSmoke(xmlPath, expectedSampleTime);
 end
 
 fprintf('Lego SDF smoke passed: sampleTime=%.6f ngeom=%g nscenegeom=%g\n', ...
@@ -137,7 +138,29 @@ if ~isfinite(value) || fix(value) ~= value
 end
 end
 
-function simTime = localRunSfunSmoke(xmlPath)
+function value = localReadRequiredOptionDouble(xmlPath, attributeName)
+xmlDoc = xmlread(xmlPath);
+optionNodes = xmlDoc.getElementsByTagName('option');
+if optionNodes.getLength() == 0
+    error('legoSdfSmoke:missingOption', 'Smoke MJCF must include an option element.');
+end
+
+optionNode = optionNodes.item(0);
+if ~optionNode.hasAttribute(attributeName)
+    error('legoSdfSmoke:missingOptionAttribute', ...
+        'Smoke MJCF option is missing required attribute: %s', attributeName);
+end
+
+rawValue = char(optionNode.getAttribute(attributeName));
+value = str2double(rawValue);
+if ~isfinite(value) || value <= 0
+    error('legoSdfSmoke:invalidOptionAttribute', ...
+        'Smoke MJCF option %s must be a positive number, got: %s', ...
+        attributeName, rawValue);
+end
+end
+
+function simTime = localRunSfunSmoke(xmlPath, sampleTime)
 modelName = 'tmp_lego_sdf_sfun_smoke';
 if bdIsLoaded(modelName)
     close_system(modelName, 0);
@@ -152,7 +175,7 @@ add_block('simulink/User-Defined Functions/S-Function', [modelName '/mj_sfun'], 
     'Position', [150 40 300 180]);
 
 params = sprintf(['''%s'', ''None'', 0, 0, 0, 0, 0, 30, ', ...
-    '0.033333333333, 0.002, 1, '''', 0, 0, 0, 0, 0'], xmlPath);
+    '0.033333333333, %.17g, 1, '''', 0, 0, 0, 0, 0'], xmlPath, sampleTime);
 set_param([modelName '/mj_sfun'], 'FunctionName', 'mj_sfun', 'Parameters', params);
 
 for outIdx = 1:4
@@ -167,11 +190,11 @@ for outIdx = 1:4
         sprintf('term%d/1', outIdx), 'autorouting', 'on');
 end
 
-set_param(modelName, 'StopTime', '0.006', ...
+set_param(modelName, 'StopTime', sprintf('%.17g', 3 * sampleTime), ...
     'SimulationMode', 'normal', 'FastRestart', 'off');
 simOut = sim(modelName, 'ReturnWorkspaceOutputs', 'on');
 simTime = simOut.tout(:)';
-expected = [0 0.002 0.004 0.006];
+expected = (0:3) * sampleTime;
 if numel(simTime) ~= numel(expected) || any(abs(simTime - expected) > 1e-12)
     error('legoSdfSmoke:simTime', 'Unexpected Simulink time vector: %s', mat2str(simTime));
 end

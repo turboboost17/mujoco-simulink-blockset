@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <limits>
 #include <optional>
 #include <utility>
 
@@ -23,11 +22,12 @@ constexpr mjtNum kStudRadius = 2.4;
 constexpr mjtNum kStudHeight = 1.8;
 constexpr mjtNum kBodyClearance = 0.2;
 constexpr mjtNum kPlateHeight = 3.2;
-constexpr mjtNum kWallThickness = 1.2;
-constexpr mjtNum kTopThickness = 1.2;
 constexpr mjtNum kRoundRadius = 0.1;
-constexpr mjtNum kTubeOuterRadius = 6.51 / 2.0;
-constexpr mjtNum kTubeInnerRadius = 4.8 / 2.0;
+constexpr mjtNum kStudRoundRadius = 0.12;
+constexpr mjtNum kSocketRadius = 3.6;
+constexpr mjtNum kSocketDepth = 2.1;
+constexpr mjtNum kSocketOpenExtension = 0.4;
+constexpr mjtNum kSocketRoundRadius = 0.15;
 constexpr mjtNum kMinimumSize = 0.05;
 
 struct BrickSpec {
@@ -130,16 +130,18 @@ mjtNum SdRoundBox(const mjtNum point[3], const mjtNum halfExtents[3],
   return SdBox(point, roundedHalfExtents) - radius;
 }
 
-mjtNum SdCylinderY(const mjtNum point[3], mjtNum radius, mjtNum halfHeight) {
-  return std::max(Length2(point[0], point[2]) - radius,
-                  std::abs(point[1]) - halfHeight);
-}
-
-mjtNum SdTubeY(const mjtNum point[3], mjtNum outerRadius, mjtNum innerRadius,
-               mjtNum halfHeight) {
-  mjtNum radial = Length2(point[0], point[2]);
-  mjtNum shell = std::max(radial - outerRadius, innerRadius - radial);
-  return std::max(shell, std::abs(point[1]) - halfHeight);
+mjtNum SdRoundedCylinderY(const mjtNum point[3], mjtNum radius,
+                          mjtNum halfHeight, mjtNum roundRadius) {
+  mjtNum clampedRoundRadius = std::min(
+      std::min(roundRadius, radius - kMinimumSize), halfHeight - kMinimumSize);
+  clampedRoundRadius = std::max(clampedRoundRadius, static_cast<mjtNum>(0));
+  mjtNum radial = Length2(point[0], point[2]) - (radius - clampedRoundRadius);
+  mjtNum axial = std::abs(point[1]) - (halfHeight - clampedRoundRadius);
+  mjtNum outsideRadial = std::max(radial, static_cast<mjtNum>(0));
+  mjtNum outsideAxial = std::max(axial, static_cast<mjtNum>(0));
+  mjtNum outside = Length2(outsideRadial, outsideAxial);
+  mjtNum inside = std::min(std::max(radial, axial), static_cast<mjtNum>(0));
+  return outside + inside - clampedRoundRadius;
 }
 
 mjtNum NearestGridCoordinate(mjtNum value, int count, mjtNum pitch) {
@@ -153,19 +155,7 @@ mjtNum NearestGridCoordinate(mjtNum value, int count, mjtNum pitch) {
 mjtNum BodyDistance(const mjtNum pointMillimeters[3], const BrickSpec& spec) {
   mjtNum outerHalf[3] = {0.5 * spec.bodyX, 0.5 * spec.bodyY,
                          0.5 * spec.bodyZ};
-  mjtNum outer = SdRoundBox(pointMillimeters, outerHalf, kRoundRadius);
-
-  mjtNum cavityHeight = std::max(spec.bodyY - kTopThickness, kMinimumSize);
-  mjtNum innerHalf[3] = {
-      std::max(outerHalf[0] - kWallThickness, kMinimumSize),
-      0.5 * cavityHeight,
-      std::max(outerHalf[2] - kWallThickness, kMinimumSize)};
-  mjtNum innerCenterY = -outerHalf[1] + innerHalf[1];
-  mjtNum innerPoint[3] = {pointMillimeters[0],
-                          pointMillimeters[1] - innerCenterY,
-                          pointMillimeters[2]};
-  mjtNum inner = SdBox(innerPoint, innerHalf);
-  return std::max(outer, -inner);
+  return SdRoundBox(pointMillimeters, outerHalf, kRoundRadius);
 }
 
 mjtNum TopStudDistance(const mjtNum pointMillimeters[3], const BrickSpec& spec) {
@@ -177,25 +167,27 @@ mjtNum TopStudDistance(const mjtNum pointMillimeters[3], const BrickSpec& spec) 
   mjtNum studPoint[3] = {pointMillimeters[0] - studCenterX,
                          pointMillimeters[1] - studCenterY,
                          pointMillimeters[2] - studCenterZ};
-  return SdCylinderY(studPoint, kStudRadius, 0.5 * kStudHeight);
+  return SdRoundedCylinderY(studPoint, kStudRadius, 0.5 * kStudHeight,
+                            kStudRoundRadius);
 }
 
-mjtNum BottomTubeDistance(const mjtNum pointMillimeters[3], const BrickSpec& spec) {
-  if (spec.studX <= 1 || spec.studY <= 1) {
-    return std::numeric_limits<mjtNum>::infinity();
-  }
-
-  mjtNum tubeCenterX = NearestGridCoordinate(pointMillimeters[0], spec.studX - 1,
-                                             kStudPitch);
-  mjtNum tubeCenterZ = NearestGridCoordinate(pointMillimeters[2], spec.studY - 1,
-                                             kStudPitch);
-  mjtNum tubeHeight = std::max(spec.bodyY - kTopThickness, kMinimumSize);
-  mjtNum tubeCenterY = -0.5 * spec.bodyY + 0.5 * tubeHeight;
-  mjtNum tubePoint[3] = {pointMillimeters[0] - tubeCenterX,
-                         pointMillimeters[1] - tubeCenterY,
-                         pointMillimeters[2] - tubeCenterZ};
-  return SdTubeY(tubePoint, kTubeOuterRadius, kTubeInnerRadius,
-                 0.5 * tubeHeight);
+mjtNum BottomSocketDistance(const mjtNum pointMillimeters[3],
+                            const BrickSpec& spec) {
+  mjtNum socketCenterX = NearestGridCoordinate(pointMillimeters[0], spec.studX,
+                                               kStudPitch);
+  mjtNum socketCenterZ = NearestGridCoordinate(pointMillimeters[2], spec.studY,
+                                               kStudPitch);
+  mjtNum socketDepth = std::min(kSocketDepth,
+                                std::max(spec.bodyY - kMinimumSize,
+                                         kMinimumSize));
+  mjtNum socketHeight = socketDepth + kSocketOpenExtension;
+  mjtNum socketCenterY = -0.5 * spec.bodyY + 0.5 * socketDepth -
+                         0.5 * kSocketOpenExtension;
+  mjtNum socketPoint[3] = {pointMillimeters[0] - socketCenterX,
+                           pointMillimeters[1] - socketCenterY,
+                           pointMillimeters[2] - socketCenterZ};
+  return SdRoundedCylinderY(socketPoint, kSocketRadius, 0.5 * socketHeight,
+                            kSocketRoundRadius);
 }
 
 mjtNum DistanceMillimeters(const mjtNum pointMeters[3],
@@ -207,7 +199,7 @@ mjtNum DistanceMillimeters(const mjtNum pointMeters[3],
 
   mjtNum shape = BodyDistance(pointMillimeters, spec);
   shape = std::min(shape, TopStudDistance(pointMillimeters, spec));
-  shape = std::min(shape, BottomTubeDistance(pointMillimeters, spec));
+  shape = std::max(shape, -BottomSocketDistance(pointMillimeters, spec));
   return shape;
 }
 
