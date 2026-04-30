@@ -11,7 +11,7 @@
     </plugin>
   </extension>
 
-  <option timestep="0.002" gravity="0 0 -9.81" sdf_iterations="10" sdf_initpoints="20"/>
+  <option timestep="0.002" gravity="0 0 -9.81" sdf_iterations="8" sdf_initpoints="8"/>
 
   <asset>
     <mesh name="brick_2x4">
