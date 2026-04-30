@@ -23,3 +23,11 @@ artifact = build_lego_sdf_plugin;
 ```
 
 The helper builds the shared library with CMake and installs it into the active MuJoCo runtime's `bin/mujoco_plugin` directory.
+
+Run the full local smoke path with:
+
+```matlab
+result = smoke_lego_sdf_plugin;
+```
+
+The smoke helper rebuilds the plugin, runs the native MuJoCo loader executable, checks `mj_sampletime` and `mj_labelmap_mex`, then runs a temporary no-render Simulink model around `mj_sfun`.
