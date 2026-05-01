@@ -4,7 +4,7 @@
 
 int main(int argc, char** argv) {
   if (argc != 3) {
-    std::fprintf(stderr, "usage: lego_sdf_smoke <plugin_dir> <model.xml>\n");
+    std::fprintf(stderr, "usage: brick_sdf_smoke <plugin_dir> <model.xml>\n");
     return 2;
   }
 
@@ -14,9 +14,9 @@ int main(int argc, char** argv) {
   mj_loadAllPluginLibraries(pluginDir, nullptr);
 
   int pluginSlot = -1;
-  const mjpPlugin* plugin = mjp_getPlugin("mujoco.sdf.lego_brick", &pluginSlot);
+  const mjpPlugin* plugin = mjp_getPlugin("mujoco.sdf.brick", &pluginSlot);
   if (!plugin) {
-    std::fprintf(stderr, "mujoco.sdf.lego_brick was not registered\n");
+    std::fprintf(stderr, "mujoco.sdf.brick was not registered\n");
     return 3;
   }
 

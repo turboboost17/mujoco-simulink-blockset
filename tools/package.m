@@ -3,8 +3,10 @@
 % folder name, {files}
 fileList = {
     'blocks', {'*.xml', '*.m', '*.mex*', '*.pdb', '*.slx'}
-    'examples', {'*.slx'}
+    'examples', {'*.slx', '*.xml'}
+    'plugins', {'brick_sdf'}
     'src', {'*'}
+    'tests', {'*.m', 'README.md', 'fixtures', 'utils'}
     'tools', {'*.m', '*.js', '*.mk', '*.json', 'Makefile'}
     '.', {'*.m', '*.txt', '*.md'}
     };

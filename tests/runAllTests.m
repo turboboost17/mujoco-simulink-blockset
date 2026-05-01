@@ -14,6 +14,7 @@ function results = runAllTests(varargin)
 %   Seg         : segmentation-rendering-only tests
 %   Combo       : two-of-three or three-of-three rendering combinations
 %   RenderOff   : rendering disabled (performance path)
+%   BrickSdf    : parametric brick SDF build/load/smoke coverage
 %   ROS2WSL     : codegen targeting ROS2 on WSL
 %   ROS2Pi      : codegen/deploy targeting Raspberry Pi
 %   ROS2Runtime : ROS2 runtime publish/subscribe checks
@@ -42,6 +43,7 @@ function results = runAllTests(varargin)
     addpath(fullfile(thisDir, 'fixtures'));
     addpath(fullfile(repoRoot, 'blocks'));
     addpath(fullfile(repoRoot, 'examples'));
+    addpath(fullfile(repoRoot, 'tools'));
 
     import matlab.unittest.TestSuite
     import matlab.unittest.TestRunner

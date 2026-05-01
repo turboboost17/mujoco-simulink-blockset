@@ -1,8 +1,8 @@
-<mujoco model="lego_sdf_2x4">
+<mujoco model="brick_sdf_2x4">
   <compiler autolimits="true"/>
 
   <extension>
-    <plugin plugin="mujoco.sdf.lego_brick">
+    <plugin plugin="mujoco.sdf.brick">
       <instance name="brick_2x4">
         <config key="stud_x" value="2"/>
         <config key="stud_y" value="4"/>

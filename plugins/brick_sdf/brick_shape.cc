@@ -1,4 +1,4 @@
-#include "lego_brick.h"
+#include "brick_shape.h"
 
 #include <algorithm>
 #include <cctype>
@@ -6,13 +6,14 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <optional>
 #include <utility>
 
 #include <mujoco/mjplugin.h>
 #include <mujoco/mujoco.h>
 
-namespace mujoco::plugin::lego_sdf {
+namespace mujoco::plugin::brick_sdf {
 namespace {
 
 constexpr mjtNum kMetersToMillimeters = 1000.0;
@@ -24,11 +25,13 @@ constexpr mjtNum kBodyClearance = 0.2;
 constexpr mjtNum kPlateHeight = 3.2;
 constexpr mjtNum kRoundRadius = 0.1;
 constexpr mjtNum kStudRoundRadius = 0.12;
-constexpr mjtNum kSocketRadius = 3.6;
+constexpr mjtNum kSocketRadius = 2.6;
 constexpr mjtNum kSocketDepth = 2.1;
 constexpr mjtNum kSocketOpenExtension = 0.4;
-constexpr mjtNum kSocketRoundRadius = 0.15;
+constexpr mjtNum kSocketRoundRadius = 0.12;
+constexpr mjtNum kMinimumSocketRoofThickness = 1.3;
 constexpr mjtNum kMinimumSize = 0.05;
+constexpr int kMaximumStudCount = 32;
 
 struct BrickSpec {
   int studX;
@@ -68,10 +71,10 @@ int RoundAndClampCount(mjtNum value, int minimum, int maximum) {
   return std::clamp(rounded, minimum, maximum);
 }
 
-BrickSpec MakeSpec(const mjtNum attributes[LegoBrickAttribute::nattribute]) {
+BrickSpec MakeSpec(const mjtNum attributes[BrickAttribute::nattribute]) {
   BrickSpec spec{};
-  spec.studX = RoundAndClampCount(attributes[0], 1, 100);
-  spec.studY = RoundAndClampCount(attributes[1], 1, 100);
+  spec.studX = RoundAndClampCount(attributes[0], 1, kMaximumStudCount);
+  spec.studY = RoundAndClampCount(attributes[1], 1, kMaximumStudCount);
   spec.height = RoundAndClampCount(attributes[2], 1, 3);
   spec.bodyX = kStudPitch * spec.studX - kBodyClearance;
   spec.bodyY = kPlateHeight * spec.height;
@@ -79,14 +82,14 @@ BrickSpec MakeSpec(const mjtNum attributes[LegoBrickAttribute::nattribute]) {
   return spec;
 }
 
-void ParseAttributes(mjtNum attribute[LegoBrickAttribute::nattribute],
-                     const char* const values[LegoBrickAttribute::nattribute]) {
+void ParseAttributes(mjtNum attribute[BrickAttribute::nattribute],
+           const char* const values[BrickAttribute::nattribute]) {
   for (int attributeIndex = 0;
-       attributeIndex < LegoBrickAttribute::nattribute;
+     attributeIndex < BrickAttribute::nattribute;
        ++attributeIndex) {
     attribute[attributeIndex] = ParseAttributeValue(
         values ? values[attributeIndex] : nullptr,
-        LegoBrickAttribute::defaults[attributeIndex]);
+    BrickAttribute::defaults[attributeIndex]);
   }
 
   BrickSpec spec = MakeSpec(attribute);
@@ -173,13 +176,18 @@ mjtNum TopStudDistance(const mjtNum pointMillimeters[3], const BrickSpec& spec) 
 
 mjtNum BottomSocketDistance(const mjtNum pointMillimeters[3],
                             const BrickSpec& spec) {
+  mjtNum maxSocketDepth =
+      std::max(spec.bodyY - kMinimumSocketRoofThickness,
+               static_cast<mjtNum>(0));
+  mjtNum socketDepth = std::min(kSocketDepth, maxSocketDepth);
+  if (socketDepth <= kMinimumSize) {
+    return std::numeric_limits<mjtNum>::max();
+  }
+
   mjtNum socketCenterX = NearestGridCoordinate(pointMillimeters[0], spec.studX,
                                                kStudPitch);
   mjtNum socketCenterZ = NearestGridCoordinate(pointMillimeters[2], spec.studY,
                                                kStudPitch);
-  mjtNum socketDepth = std::min(kSocketDepth,
-                                std::max(spec.bodyY - kMinimumSize,
-                                         kMinimumSize));
   mjtNum socketHeight = socketDepth + kSocketOpenExtension;
   mjtNum socketCenterY = -0.5 * spec.bodyY + 0.5 * socketDepth -
                          0.5 * kSocketOpenExtension;
@@ -191,7 +199,7 @@ mjtNum BottomSocketDistance(const mjtNum pointMillimeters[3],
 }
 
 mjtNum DistanceMillimeters(const mjtNum pointMeters[3],
-                           const mjtNum attributes[LegoBrickAttribute::nattribute]) {
+                           const mjtNum attributes[BrickAttribute::nattribute]) {
   BrickSpec spec = MakeSpec(attributes);
   mjtNum pointMillimeters[3] = {pointMeters[0] * kMetersToMillimeters,
                                 pointMeters[1] * kMetersToMillimeters,
@@ -204,7 +212,7 @@ mjtNum DistanceMillimeters(const mjtNum pointMeters[3],
 }
 
 void FillAabb(mjtNum aabb[6],
-              const mjtNum attributes[LegoBrickAttribute::nattribute]) {
+              const mjtNum attributes[BrickAttribute::nattribute]) {
   BrickSpec spec = MakeSpec(attributes);
   constexpr mjtNum margin = 0.5 * kMillimetersToMeters;
   aabb[0] = 0;
@@ -217,28 +225,28 @@ void FillAabb(mjtNum aabb[6],
 
 }  // namespace
 
-std::optional<LegoBrick> LegoBrick::Create(const mjModel* model, mjData* data,
-                                           int instance) {
+std::optional<BrickShape> BrickShape::Create(const mjModel* model, mjData* data,
+                                             int instance) {
   (void)data;
-  return LegoBrick(model, instance);
+  return BrickShape(model, instance);
 }
 
-LegoBrick::LegoBrick(const mjModel* model, int instance) {
-  const char* values[LegoBrickAttribute::nattribute] = {};
+BrickShape::BrickShape(const mjModel* model, int instance) {
+  const char* values[BrickAttribute::nattribute] = {};
   for (int attributeIndex = 0;
-       attributeIndex < LegoBrickAttribute::nattribute;
+       attributeIndex < BrickAttribute::nattribute;
        ++attributeIndex) {
     values[attributeIndex] = mj_getPluginConfig(
-        model, instance, LegoBrickAttribute::names[attributeIndex]);
+        model, instance, BrickAttribute::names[attributeIndex]);
   }
   ParseAttributes(attribute, values);
 }
 
-mjtNum LegoBrick::Distance(const mjtNum point[3]) const {
+mjtNum BrickShape::Distance(const mjtNum point[3]) const {
   return DistanceMillimeters(point, attribute) * kMillimetersToMeters;
 }
 
-void LegoBrick::Gradient(mjtNum gradient[3], const mjtNum point[3]) const {
+void BrickShape::Gradient(mjtNum gradient[3], const mjtNum point[3]) const {
   constexpr mjtNum epsilon = 1e-6;
 
   for (int axis = 0; axis < 3; ++axis) {
@@ -250,30 +258,30 @@ void LegoBrick::Gradient(mjtNum gradient[3], const mjtNum point[3]) const {
   }
 }
 
-void LegoBrick::RegisterPlugin() {
+void BrickShape::RegisterPlugin() {
   mjpPlugin plugin;
   mjp_defaultPlugin(&plugin);
 
-  plugin.name = "mujoco.sdf.lego_brick";
+  plugin.name = "mujoco.sdf.brick";
   plugin.capabilityflags |= mjPLUGIN_SDF;
-  plugin.nattribute = LegoBrickAttribute::nattribute;
-  plugin.attributes = LegoBrickAttribute::names;
+  plugin.nattribute = BrickAttribute::nattribute;
+  plugin.attributes = BrickAttribute::names;
   plugin.nstate = +[](const mjModel* model, int instance) {
     (void)model;
     (void)instance;
     return 0;
   };
   plugin.init = +[](const mjModel* model, mjData* data, int instance) {
-    auto brickOrNull = LegoBrick::Create(model, data, instance);
+    auto brickOrNull = BrickShape::Create(model, data, instance);
     if (!brickOrNull.has_value()) {
       return -1;
     }
     data->plugin_data[instance] = reinterpret_cast<uintptr_t>(
-        new LegoBrick(std::move(*brickOrNull)));
+        new BrickShape(std::move(*brickOrNull)));
     return 0;
   };
   plugin.destroy = +[](mjData* data, int instance) {
-    delete reinterpret_cast<LegoBrick*>(data->plugin_data[instance]);
+    delete reinterpret_cast<BrickShape*>(data->plugin_data[instance]);
     data->plugin_data[instance] = 0;
   };
   plugin.reset = +[](const mjModel* model, mjtNum* pluginState,
@@ -292,12 +300,12 @@ void LegoBrick::RegisterPlugin() {
   };
   plugin.sdf_distance = +[](const mjtNum point[3], const mjData* data,
                             int instance) {
-    auto* brick = reinterpret_cast<LegoBrick*>(data->plugin_data[instance]);
+    auto* brick = reinterpret_cast<BrickShape*>(data->plugin_data[instance]);
     return brick->Distance(point);
   };
   plugin.sdf_gradient = +[](mjtNum gradient[3], const mjtNum point[3],
                             const mjData* data, int instance) {
-    auto* brick = reinterpret_cast<LegoBrick*>(data->plugin_data[instance]);
+    auto* brick = reinterpret_cast<BrickShape*>(data->plugin_data[instance]);
     brick->Gradient(gradient, point);
   };
   plugin.sdf_staticdistance = +[](const mjtNum point[3],
@@ -316,4 +324,4 @@ void LegoBrick::RegisterPlugin() {
   mjp_registerPlugin(&plugin);
 }
 
-}  // namespace mujoco::plugin::lego_sdf
+}  // namespace mujoco::plugin::brick_sdf

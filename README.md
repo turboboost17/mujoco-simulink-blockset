@@ -8,6 +8,7 @@ Useful for,
 1. Robot simulation (mobile, biomimetics, grippers, robotic arm)
 2. Development of autonomous algorithms
 3. Camera (RGB, Depth, Segmentation) rendering
+4. Parametric MuJoCo SDF assets such as studded bricks loaded through engine plugins
 
 ## Installation Instructions
 
@@ -26,6 +27,8 @@ MATLAB R2024b or newer is recommended. Install MATLAB with the above products an
 - GLFW 3.3.7 (3.4 optional)
 
 *Note - You will need to rebuild the S-Function when using a source checkout because the repository does not track generated binary files.*
+
+For source checkouts, `install` now also attempts to build and install the bundled parametric brick SDF plugin into the active MuJoCo runtime. If a C++ toolchain is not configured yet, `install` warns and you can finish that step later with `mex -setup c++` followed by `build_brick_sdf_plugin`.
 
 ### Simulink Blockset for MuJoCo
     
@@ -46,6 +49,19 @@ MATLAB R2024b or newer is recommended. Install MATLAB with the above products an
 Open the example model and run it in normal simulation mode.
 
 If the installation is successful, you should see a pendulum model running in a separate window and camera streams displayed by Video Viewer blocks (Computer Vision Toolbox).
+
+## Parametric Brick SDF
+
+This blockset now ships a built-in MuJoCo engine plugin for parametric studded bricks. The public plugin identifier is `mujoco.sdf.brick`, the compact release smoke example is `examples/brick_sdf_2x4.xml`, and the larger contact-tuning stack example is `examples/brick_sdf_stack.xml`.
+
+From a source checkout, use the release-facing helpers below after `install`:
+
+```matlab
+artifact = build_brick_sdf_plugin;
+result = smoke_brick_sdf_plugin;
+```
+
+`smoke_brick_sdf_plugin` rebuilds the plugin, verifies native plugin registration, checks `mj_sampletime` and `mj_labelmap_mex`, and runs a no-render Simulink smoke around `mj_sfun`.
 
 *A dedicated graphics card is recommended for the best performance. Disable Video Viewer blocks if the model runs slow*
 
@@ -149,6 +165,7 @@ Steps for building/rebuilding the C-MEX S-Function code. These instructions are 
     - `>> setupBuild`
     - `>> mex -setup c++`
     - `>> build`
+    - `>> smoke_brick_sdf_plugin`
 
 ### Ubuntu
 
@@ -164,6 +181,7 @@ Steps for building/rebuilding the C-MEX S-Function code. These instructions are 
     - `>> setupBuild`
     - `>> mex -setup c++`
     - `>> build`
+    - `>> smoke_brick_sdf_plugin`
 
 ## Tips and Tricks
 - ***Code generation*** - The MuJoCo Plant block supports code generation (Simulink Coder) and monitor and tune for host target. Refer to mj_monitorTune.slx for more info.
