@@ -11,6 +11,7 @@ classdef MujocoEnvFixture < matlab.unittest.fixtures.Fixture
             addpath(fullfile(repoRoot, 'blocks'));
             addpath(fullfile(repoRoot, 'examples'));
             addpath(fullfile(repoRoot, 'src'));
+            addpath(fullfile(repoRoot, 'tools'));
             if ~ispref('mujoco', 'incPaths')
                 error('MujocoEnvFixture:notInstalled', ...
                     'Run install() before running tests.');

@@ -18,6 +18,7 @@ urlsList = fileread("tools/links.json");
 blockPath = './blocks/';
 examplePath = './examples/';
 srcPath = './src/';
+toolPath = './tools/';
 
 glfwRunTimeLib = 'lib-static-ucrt';
 % Universal C Run Time (UCRT) is installed in windows 10 or beyond by
@@ -40,6 +41,7 @@ end
 %% MATLAB PATH ADDITION
 addpath(blockPath);
 addpath(examplePath);
+addpath(toolPath);
 savepath
 disp(' ')
 disp("MuJoCo block library and examples added to MATLAB path and saved");
@@ -154,7 +156,29 @@ if strcmp(target, 'ros2')
     disp("  sudo apt install libglfw3-dev libgl-dev");
 end
 
+%% OPTIONAL BRICK SDF PLUGIN BUILD
+localBuildBrickSdfPlugin();
+
 %% Local functions
+    function localBuildBrickSdfPlugin()
+        pluginSourceDir = fullfile(pwd, 'plugins', 'brick_sdf');
+        if ~isfolder(pluginSourceDir)
+            return;
+        end
+
+        disp(' ')
+        disp("=== Building parametric brick SDF plugin ===");
+        try
+            artifact = build_brick_sdf_plugin;
+            disp("  Installed brick SDF plugin: " + artifact);
+        catch ME
+            warning('mujoco:install:brickSdfBuild', ...
+                ['Parametric brick SDF plugin build skipped. ' ...
+                 'Run mex -setup C++ and then build_brick_sdf_plugin to enable the brick MJCF examples. ' ...
+                 'Reason: %s'], ME.message);
+        end
+    end
+
     function downloadfolder = downloader(urlsList, name, version)
     % Download library for the current MATLAB platform architecture
         downloadfolder = downloadForArch(urlsList, name, version, computer('arch'));

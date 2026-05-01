@@ -1,6 +1,6 @@
-# Custom SDF Lego Handoff
+# Custom SDF Brick Handoff
 
-This file restores the useful parts of the prior Copilot chat about adding a parametric Lego-like SDF plugin to this MuJoCo Simulink blockset. The old `mujoco-simulink-blockset-sdf-fork` clone can be abandoned; this branch starts fresh from latest `main`.
+This file restores the useful parts of the prior Copilot chat about adding a parametric brick-like SDF plugin to this MuJoCo Simulink blockset. The old `mujoco-simulink-blockset-sdf-fork` clone can be abandoned; this branch starts fresh from latest `main`.
 
 Recovered source transcript:
 
@@ -19,10 +19,10 @@ Original chat title: `Adding SDF Definitions to Mujoco Installation`.
 
 ## Target Plugin
 
-Plugin name:
+Public plugin name:
 
 ```text
-mujoco.sdf.lego_brick
+mujoco.sdf.brick
 ```
 
 Attributes:
@@ -115,7 +115,7 @@ MuJoCo expects `[center_x, center_y, center_z, half_x, half_y, half_z]` in local
 
 ```xml
 <extension>
-  <plugin plugin="mujoco.sdf.lego_brick">
+  <plugin plugin="mujoco.sdf.brick">
     <instance name="brick_2x4">
       <config key="stud_x" value="4"/>
       <config key="stud_y" value="2"/>
@@ -141,17 +141,17 @@ MuJoCo expects `[center_x, center_y, center_z, half_x, half_y, half_z]` in local
 
 ## Implementation Plan
 
-1. Create a separate out-of-tree plugin folder for `lego_sdf` rather than replacing DeepMind's stock `sdf_plugin`.
-2. Add `lego_brick.h`, `lego_brick.cc`, `register.cc`, and `CMakeLists.txt`.
-3. Register with `mjPLUGIN_LIB_INIT(lego_sdf) { LegoBrick::RegisterPlugin(); }` for the MuJoCo 3.7/3.8 plugin ABI.
+1. Create a separate out-of-tree plugin folder for `brick_sdf` rather than replacing DeepMind's stock `sdf_plugin`.
+2. Add `brick_shape.h`, `brick_shape.cc`, `register.cc`, and `CMakeLists.txt`.
+3. Register with `mjPLUGIN_LIB_INIT(brick_sdf) { BrickShape::RegisterPlugin(); }` for the MuJoCo 3.7/3.8 plugin ABI.
 4. Build against `lib/win64/mujoco`, `lib/linux-x86_64/mujoco`, and `lib/linux-aarch64/mujoco`.
 5. Copy artifacts to:
 
 ```text
-lib/win64/mujoco/bin/mujoco_plugin/lego_sdf.dll
-lib/linux-x86_64/mujoco/bin/mujoco_plugin/liblego_sdf.so
-lib/linux-aarch64/mujoco/bin/mujoco_plugin/liblego_sdf.so
+lib/win64/mujoco/bin/mujoco_plugin/brick_sdf.dll
+lib/linux-x86_64/mujoco/bin/mujoco_plugin/libbrick_sdf.so
+lib/linux-aarch64/mujoco/bin/mujoco_plugin/libbrick_sdf.so
 ```
 
 6. Add plugin loading before every XML parse path that should support SDF XMLs, especially the main MuJoCo wrapper before `mj_loadXML`.
-7. Validate plugin loading with the stock `nutbolt.xml`, then validate `mujoco.sdf.lego_brick` with a simple 2x4 brick MJCF.
+7. Validate plugin loading with the stock `nutbolt.xml`, then validate `mujoco.sdf.brick` with a simple 2x4 brick MJCF.

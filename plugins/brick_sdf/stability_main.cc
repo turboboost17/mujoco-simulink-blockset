@@ -93,7 +93,7 @@ struct Metrics {
 int main(int argc, char** argv) {
   if (argc < 3 || argc > 6) {
     std::fprintf(stderr,
-                 "usage: lego_sdf_stability <plugin_dir> <model.xml> "
+                 "usage: brick_sdf_stability <plugin_dir> <model.xml> "
                  "[body_name=brick_2] [duration=3] [settle_start=1]\n");
     return 2;
   }
@@ -108,9 +108,9 @@ int main(int argc, char** argv) {
   mj_loadAllPluginLibraries(pluginDir, nullptr);
 
   int pluginSlot = -1;
-  const mjpPlugin* plugin = mjp_getPlugin("mujoco.sdf.lego_brick", &pluginSlot);
+  const mjpPlugin* plugin = mjp_getPlugin("mujoco.sdf.brick", &pluginSlot);
   if (!plugin) {
-    std::fprintf(stderr, "mujoco.sdf.lego_brick was not registered\n");
+    std::fprintf(stderr, "mujoco.sdf.brick was not registered\n");
     return 3;
   }
 

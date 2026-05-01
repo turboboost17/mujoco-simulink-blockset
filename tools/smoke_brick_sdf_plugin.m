@@ -1,5 +1,5 @@
-function result = smoke_lego_sdf_plugin(opts)
-%SMOKE_LEGO_SDF_PLUGIN Build and validate the Lego SDF plugin path.
+function result = smoke_brick_sdf_plugin(opts)
+%SMOKE_BRICK_SDF_PLUGIN Build and validate the brick SDF plugin path.
 
 arguments
     opts.MujocoRoot (1,:) char = ''
@@ -8,19 +8,19 @@ arguments
     opts.Build (1,1) logical = true
     opts.RunNative (1,1) logical = true
     opts.RunSimulink (1,1) logical = true
-    opts.MaxSdfInitPoints (1,1) double = 8
+    opts.MaxSdfInitPoints (1,1) double = 10
     opts.MaxSdfIterations (1,1) double = 8
 end
 
 repoRoot = fileparts(fileparts(mfilename('fullpath')));
-xmlPath = fullfile(repoRoot, 'examples', 'lego_sdf_2x4.xml');
+xmlPath = fullfile(repoRoot, 'examples', 'brick_sdf_2x4.xml');
 localAssertConservativeSdfOptions(xmlPath, opts.MaxSdfInitPoints, opts.MaxSdfIterations);
 expectedSampleTime = localReadRequiredOptionDouble(xmlPath, 'timestep');
 addpath(fullfile(repoRoot, 'blocks'), '-begin');
 addpath(fullfile(repoRoot, 'tools'), '-begin');
 
 if opts.Build
-    artifact = build_lego_sdf_plugin(MujocoRoot=opts.MujocoRoot, ...
+    artifact = build_brick_sdf_plugin(MujocoRoot=opts.MujocoRoot, ...
         BuildDir=opts.BuildDir, PluginDir=opts.PluginDir);
     pluginDir = fileparts(artifact);
 else
@@ -29,12 +29,12 @@ else
         pluginDir = getenv('MUJOCO_PLUGIN_DIR');
     end
     if isempty(pluginDir)
-        error('legoSdfSmoke:noPluginDir', ...
+        error('brickSdfSmoke:noPluginDir', ...
             'Pass PluginDir or set MUJOCO_PLUGIN_DIR when Build=false.');
     end
     artifact = fullfile(pluginDir, localPluginLibraryName());
     if ~isfile(artifact)
-        error('legoSdfSmoke:missingPlugin', 'Plugin artifact not found: %s', artifact);
+        error('brickSdfSmoke:missingPlugin', 'Plugin artifact not found: %s', artifact);
     end
 end
 
@@ -54,7 +54,7 @@ end
 
 result.sampleTime = mj_sampletime(xmlPath);
 if abs(result.sampleTime - expectedSampleTime) > 1e-12
-    error('legoSdfSmoke:sampleTime', 'Unexpected sample time: %.17g', result.sampleTime);
+    error('brickSdfSmoke:sampleTime', 'Unexpected sample time: %.17g', result.sampleTime);
 end
 
 [geomNames, bodyNames, ngeom, ~, nbody, segIds, ~, ~, ~, nscenegeom] = mj_labelmap_mex(xmlPath);
@@ -66,7 +66,7 @@ result.firstBodyName = bodyNames{1};
 result.firstSegId = segIds(1);
 
 if result.ngeom < 2 || result.nbody < 2 || result.nscenegeom < 2
-    error('legoSdfSmoke:labelmap', ...
+    error('brickSdfSmoke:labelmap', ...
         'Unexpected labelmap sizes: ngeom=%g nbody=%g nscenegeom=%g', ...
         result.ngeom, result.nbody, result.nscenegeom);
 end
@@ -75,24 +75,24 @@ if opts.RunSimulink
     result.simTime = localRunSfunSmoke(xmlPath, expectedSampleTime);
 end
 
-fprintf('Lego SDF smoke passed: sampleTime=%.6f ngeom=%g nscenegeom=%g\n', ...
+fprintf('Brick SDF smoke passed: sampleTime=%.6f ngeom=%g nscenegeom=%g\n', ...
     result.sampleTime, result.ngeom, result.nscenegeom);
 end
 
 function native = localRunNativeSmoke(repoRoot, buildDir, pluginDir, xmlPath)
 if isempty(buildDir)
-    buildDir = fullfile(repoRoot, 'temp', 'build', 'lego_sdf', computer('arch'));
+    buildDir = fullfile(repoRoot, 'temp', 'build', 'brick_sdf', computer('arch'));
 end
 
 if ispc
-    smokeExe = fullfile(buildDir, 'Release', 'lego_sdf_smoke.exe');
+    smokeExe = fullfile(buildDir, 'Release', 'brick_sdf_smoke.exe');
 else
-    smokeExe = fullfile(buildDir, 'lego_sdf_smoke');
+    smokeExe = fullfile(buildDir, 'brick_sdf_smoke');
 end
 
 native = struct('command', '', 'output', '', 'status', []);
 if ~isfile(smokeExe)
-    error('legoSdfSmoke:missingNativeSmoke', 'Native smoke executable not found: %s', smokeExe);
+    error('brickSdfSmoke:missingNativeSmoke', 'Native smoke executable not found: %s', smokeExe);
 end
 
 native.command = sprintf('%s %s %s', localQuote(smokeExe), ...
@@ -100,7 +100,7 @@ native.command = sprintf('%s %s %s', localQuote(smokeExe), ...
 [native.status, native.output] = system(native.command);
 fprintf('%s', native.output);
 if native.status ~= 0
-    error('legoSdfSmoke:nativeFailed', 'Native smoke failed with status %d.', native.status);
+    error('brickSdfSmoke:nativeFailed', 'Native smoke failed with status %d.', native.status);
 end
 end
 
@@ -108,7 +108,7 @@ function localAssertConservativeSdfOptions(xmlPath, maxInitPoints, maxIterations
 xmlDoc = xmlread(xmlPath);
 optionNodes = xmlDoc.getElementsByTagName('option');
 if optionNodes.getLength() == 0
-    error('legoSdfSmoke:missingSdfOptions', ...
+    error('brickSdfSmoke:missingSdfOptions', ...
         'Smoke MJCF must explicitly set conservative sdf_initpoints and sdf_iterations.');
 end
 
@@ -117,7 +117,7 @@ initPoints = localRequiredIntAttribute(optionNode, 'sdf_initpoints');
 iterations = localRequiredIntAttribute(optionNode, 'sdf_iterations');
 
 if initPoints > maxInitPoints || iterations > maxIterations
-    error('legoSdfSmoke:sdfTetBudget', ...
+    error('brickSdfSmoke:sdfTetBudget', ...
         ['Smoke MJCF SDF settings are too high for crash-safe validation: ', ...
          'sdf_initpoints=%d (max %d), sdf_iterations=%d (max %d).'], ...
         initPoints, maxInitPoints, iterations, maxIterations);
@@ -126,14 +126,14 @@ end
 
 function value = localRequiredIntAttribute(node, attributeName)
 if ~node.hasAttribute(attributeName)
-    error('legoSdfSmoke:missingSdfOption', ...
+    error('brickSdfSmoke:missingSdfOption', ...
         'Smoke MJCF option is missing required attribute: %s', attributeName);
 end
 
 rawValue = char(node.getAttribute(attributeName));
 value = str2double(rawValue);
 if ~isfinite(value) || fix(value) ~= value
-    error('legoSdfSmoke:invalidSdfOption', ...
+    error('brickSdfSmoke:invalidSdfOption', ...
         'Smoke MJCF option %s must be an integer, got: %s', attributeName, rawValue);
 end
 end
@@ -142,26 +142,26 @@ function value = localReadRequiredOptionDouble(xmlPath, attributeName)
 xmlDoc = xmlread(xmlPath);
 optionNodes = xmlDoc.getElementsByTagName('option');
 if optionNodes.getLength() == 0
-    error('legoSdfSmoke:missingOption', 'Smoke MJCF must include an option element.');
+    error('brickSdfSmoke:missingOption', 'Smoke MJCF must include an option element.');
 end
 
 optionNode = optionNodes.item(0);
 if ~optionNode.hasAttribute(attributeName)
-    error('legoSdfSmoke:missingOptionAttribute', ...
+    error('brickSdfSmoke:missingOptionAttribute', ...
         'Smoke MJCF option is missing required attribute: %s', attributeName);
 end
 
 rawValue = char(optionNode.getAttribute(attributeName));
 value = str2double(rawValue);
 if ~isfinite(value) || value <= 0
-    error('legoSdfSmoke:invalidOptionAttribute', ...
+    error('brickSdfSmoke:invalidOptionAttribute', ...
         'Smoke MJCF option %s must be a positive number, got: %s', ...
         attributeName, rawValue);
 end
 end
 
 function simTime = localRunSfunSmoke(xmlPath, sampleTime)
-modelName = 'tmp_lego_sdf_sfun_smoke';
+modelName = 'tmp_brick_sdf_sfun_smoke';
 if bdIsLoaded(modelName)
     close_system(modelName, 0);
 end
@@ -196,7 +196,7 @@ simOut = sim(modelName, 'ReturnWorkspaceOutputs', 'on');
 simTime = simOut.tout(:)';
 expected = (0:3) * sampleTime;
 if numel(simTime) ~= numel(expected) || any(abs(simTime - expected) > 1e-12)
-    error('legoSdfSmoke:simTime', 'Unexpected Simulink time vector: %s', mat2str(simTime));
+    error('brickSdfSmoke:simTime', 'Unexpected Simulink time vector: %s', mat2str(simTime));
 end
 end
 
@@ -209,7 +209,7 @@ else
 end
 
 if ~isfile(fullfile(mujocoBin, 'mujoco.dll')) && ispc
-    error('legoSdfSmoke:missingMujocoDll', 'mujoco.dll not found under: %s', mujocoBin);
+    error('brickSdfSmoke:missingMujocoDll', 'mujoco.dll not found under: %s', mujocoBin);
 end
 end
 
@@ -229,7 +229,7 @@ end
 
 glfwSource = localFindGlfwDll(mujocoRoot);
 if isempty(glfwSource)
-    error('legoSdfSmoke:missingGlfw', ...
+    error('brickSdfSmoke:missingGlfw', ...
         'glfw3.dll not found. Run install.m or copy glfw3.dll into blocks/.');
 end
 localCopyIfMissing(glfwSource, glfwDest);
@@ -254,18 +254,18 @@ if isfile(destFile)
     return
 end
 if ~isfile(sourceFile)
-    error('legoSdfSmoke:missingRuntimeFile', 'Runtime file not found: %s', sourceFile);
+    error('brickSdfSmoke:missingRuntimeFile', 'Runtime file not found: %s', sourceFile);
 end
 copyfile(sourceFile, destFile, 'f');
 end
 
 function libraryName = localPluginLibraryName()
 if ispc
-    libraryName = 'lego_sdf.dll';
+    libraryName = 'brick_sdf.dll';
 elseif ismac
-    libraryName = 'liblego_sdf.dylib';
+    libraryName = 'libbrick_sdf.dylib';
 else
-    libraryName = 'liblego_sdf.so';
+    libraryName = 'libbrick_sdf.so';
 end
 end
 

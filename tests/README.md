@@ -11,10 +11,12 @@ Entry point:
     runAllTests('Tags', {'Core'})              % fast smoke tests only
     runAllTests('Skip', {'ROS2Pi','ROS2WSL'})  % dev iteration
     runAllTests('Tags', {'NewFeature'})        % just the seg-repo additions
+    runAllTests('Tags', {'BrickSdf'})          % brick SDF build/load smoke only
 
 ## Tags
 
 - `Core`, `CommandInputs`, `SensorOutputs`
+- `BrickSdf`
 - `Rendering`, `RenderOff`, `RGB`, `Depth`, `Seg`, `Combo`
 - `ROS2WSL`, `ROS2Pi`, `ROS2Runtime`, `ROS2PiRuntime`
 - `NewFeature`, `PerCameraResolution`, `SegmentationIDs`, `SegmentationVideo`, `Xacro`

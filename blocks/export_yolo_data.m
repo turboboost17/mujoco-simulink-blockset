@@ -16,9 +16,9 @@ imageSets = [
 % MatchNames accepts exact names or wildcard patterns and matches against
 % both full geom names and parent body names.
 classDefinitions = [
-    struct('ClassName', "brick_1x2", 'MatchNames', "*lego1x2*")
-    struct('ClassName', "brick_2x2", 'MatchNames', "*lego2x2*")
-    struct('ClassName', "brick_2x4", 'MatchNames', "*lego2x4*")
+    struct('ClassName', "brick_1x2", 'MatchNames', ["*brick1x2*", "*lego1x2*"])
+    struct('ClassName', "brick_2x2", 'MatchNames', ["*brick2x2*", "*lego2x2*"])
+    struct('ClassName', "brick_2x4", 'MatchNames', ["*brick2x4*", "*lego2x4*"])
     struct('ClassName', "plate_1x2", 'MatchNames', "*plate1x2*")
     struct('ClassName', "plate_2x2", 'MatchNames', "*plate2x2*")
     struct('ClassName', "plate_2x4", 'MatchNames', "*plate2x4*")

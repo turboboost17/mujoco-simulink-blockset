@@ -6,31 +6,31 @@
 #include <mujoco/mjmodel.h>
 #include <mujoco/mjtnum.h>
 
-namespace mujoco::plugin::lego_sdf {
+namespace mujoco::plugin::brick_sdf {
 
-struct LegoBrickAttribute {
+struct BrickAttribute {
   static constexpr int nattribute = 3;
   static constexpr char const* names[nattribute] = {
       "stud_x", "stud_y", "height"};
   static constexpr mjtNum defaults[nattribute] = {4, 2, 3};
 };
 
-class LegoBrick {
+class BrickShape {
  public:
-  static std::optional<LegoBrick> Create(const mjModel* model, mjData* data,
-                                         int instance);
-  LegoBrick(LegoBrick&&) = default;
-  ~LegoBrick() = default;
+  static std::optional<BrickShape> Create(const mjModel* model, mjData* data,
+                                          int instance);
+  BrickShape(BrickShape&&) = default;
+  ~BrickShape() = default;
 
   mjtNum Distance(const mjtNum point[3]) const;
   void Gradient(mjtNum gradient[3], const mjtNum point[3]) const;
 
   static void RegisterPlugin();
 
-  mjtNum attribute[LegoBrickAttribute::nattribute];
+  mjtNum attribute[BrickAttribute::nattribute];
 
  private:
-  LegoBrick(const mjModel* model, int instance);
+  BrickShape(const mjModel* model, int instance);
 };
 
-}  // namespace mujoco::plugin::lego_sdf
+}  // namespace mujoco::plugin::brick_sdf
