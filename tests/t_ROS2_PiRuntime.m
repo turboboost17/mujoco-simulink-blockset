@@ -1,8 +1,17 @@
 classdef t_ROS2_PiRuntime < matlab.unittest.TestCase
     % Runtime ROS2 regression against the Raspberry Pi target.
+    %
+    % Purpose: cover the Pi build/deploy path and prove the deployed ROS2 node
+    % publishes meaningful camera and IMU data.
+    %
+    % Execution: hardware-gated. The test launches the generated executable on
+    % the Pi under xvfb-run when available, then subscribes from MATLAB and
+    % validates live topic data.
 
     methods (TestClassSetup)
         function addFixture(testCase)
+            % Shared setup: add profile helpers and skip when ROS2 support is
+            % not installed for this MATLAB environment.
             testCase.applyFixture(MujocoEnvFixture());
             repoRoot = fileparts(fileparts(mfilename('fullpath')));
             addpath(fullfile(repoRoot, 'tools', 'deviceProfiles'));
@@ -14,10 +23,13 @@ classdef t_ROS2_PiRuntime < matlab.unittest.TestCase
 
     methods (Test, TestTags = {'ROS2Runtime','ROS2PiRuntime'})
         function piTopicsPublishRuntimeData(testCase)
+            % Reachability gate: skip when the lab Pi is unavailable.
             host = t_ROS2_PiRuntime.piHost();
             [pingStatus, ~] = system(sprintf('ping -n 1 -w 1000 %s', host));
             testCase.assumeEqual(pingStatus, 0, sprintf('Pi %s not reachable', host));
 
+            % Model/profile configuration: use standalone normal mode with
+            % external mode disabled so the node can run unattended.
             modelPath = which('mj_monitorTune_ROS.slx');
             testCase.assumeNotEmpty(modelPath, 'mj_monitorTune_ROS.slx not on path');
             [~, modelName] = fileparts(modelPath);
@@ -33,6 +45,8 @@ classdef t_ROS2_PiRuntime < matlab.unittest.TestCase
             set_param(modelName, 'ExtMode', 'off');
             t_ROS2_PiRuntime.configureRuntimeRendering(modelName);
 
+            % Build/deploy phase: rtwbuild must complete before runtime topic
+            % validation can begin.
             try
                 rtwbuild(modelName);
             catch buildError
@@ -46,6 +60,8 @@ classdef t_ROS2_PiRuntime < matlab.unittest.TestCase
             stopNodeCleanup = onCleanup(@() t_ROS2_PiRuntime.stopNodeIfRunning(device, modelName));
             t_ROS2_PiRuntime.stageMuJoCoRuntimeLibraries(testCase, device, modelName);
 
+            % Subscriber setup: create a unique local ROS2 node to observe the
+            % deployed Pi node without colliding with parallel sessions.
             uuid = strrep(char(java.util.UUID.randomUUID), '-', '_');
             node = ros2node(['/mj_ros2_runtime_' uuid]);
             imageSubscriber = ros2subscriber(node, '/block_camera', ...
@@ -53,6 +69,8 @@ classdef t_ROS2_PiRuntime < matlab.unittest.TestCase
             imuSubscriber = ros2subscriber(node, '/arm_imu', ...
                 'sensor_msgs/Imu', 'Depth', 10);
 
+            % Remote launch: start the generated executable outside MATLAB's
+            % deploy helper so the test can inspect logs and clean it up.
             launch = t_ROS2_PiRuntime.startNodeUnderXvfb(testCase, ...
                 device, modelName);
             launchCleanup = onCleanup(@() t_ROS2_PiRuntime.stopLaunchedNode( ...
@@ -62,6 +80,8 @@ classdef t_ROS2_PiRuntime < matlab.unittest.TestCase
                 'not stay running on the Pi. Log:\n%s'], modelName, ...
                 t_ROS2_PiRuntime.remoteFileText(device, launch.LogFile)));
 
+            % Topic validation: require multiple nonconstant image frames and
+            % changing IMU values so startup/default buffers do not pass.
             [imageMessages, receivedImageCount, constantImageCount] = ...
                 t_ROS2_PiRuntime.receiveImageMessages(imageSubscriber, 3, 90);
             testCase.assertGreaterThanOrEqual(numel(imageMessages), 3, ...
@@ -83,6 +103,8 @@ classdef t_ROS2_PiRuntime < matlab.unittest.TestCase
 
     methods (Static, Access = private)
         function device = piDevice(testCase)
+            % Device connection: use the active MATLAB ROS Toolbox device
+            % preferences seeded by the selected Pi profile.
             try
                 device = ros2device;
             catch connectionError
@@ -256,6 +278,8 @@ classdef t_ROS2_PiRuntime < matlab.unittest.TestCase
         end
 
         function configureRuntimeRendering(modelName)
+            % Runtime sizing: reduce camera buffers to keep Pi build/runtime
+            % resource use practical while still validating image transport.
             mjBlocks = find_system(modelName, 'LookUnderMasks', 'all', ...
                 'FollowLinks', 'on', 'MaskType', 'MuJoCo Plant');
             for blockIndex = 1:numel(mjBlocks)
@@ -266,6 +290,8 @@ classdef t_ROS2_PiRuntime < matlab.unittest.TestCase
         end
 
         function launch = startNodeUnderXvfb(testCase, device, modelName)
+            % Launch wrapper: source ROS2 and workspace setup, prefer xvfb-run
+            % for offscreen rendering, and persist pid/log paths for cleanup.
             packageName = lower(modelName);
             workspace = char(device.ROS2Workspace);
             ros2Install = t_ROS2_PiRuntime.piRos2Install();
@@ -335,6 +361,8 @@ classdef t_ROS2_PiRuntime < matlab.unittest.TestCase
         end
 
         function stopLaunchedNode(device, launch)
+            % Cleanup: terminate the process group first, then fall back to the
+            % direct pid and executable match for stubborn remote processes.
             innerCommand = sprintf([ ...
                 'pid=$(cat %s 2>/dev/null || true); ' ...
                 'if [ -n "$pid" ]; then ' ...

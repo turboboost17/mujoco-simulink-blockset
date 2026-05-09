@@ -3,7 +3,7 @@ function results = runAllTests(varargin)
 %
 %   results = runAllTests()
 %   results = runAllTests('Tags', {'Core'})             % only tagged tests
-%   results = runAllTests('Skip', {'ROS2Pi'})           % exclude tags
+%   results = runAllTests('Skip', {'ROS2PiRuntime'})    % exclude tags
 %   results = runAllTests('Report', 'tests/latest.json')
 %
 % Tag taxonomy:
@@ -16,9 +16,9 @@ function results = runAllTests(varargin)
 %   RenderOff   : rendering disabled (performance path)
 %   BrickSdf    : parametric brick SDF build/load/smoke coverage
 %   ROS2WSL     : codegen targeting ROS2 on WSL
-%   ROS2Pi      : codegen/deploy targeting Raspberry Pi
+%   ROS2Linux   : codegen/deploy targeting native Ubuntu 22.04 Humble
 %   ROS2Runtime : ROS2 runtime publish/subscribe checks
-%   ROS2PiRuntime : ROS2 runtime checks on Raspberry Pi
+%   ROS2PiRuntime : Raspberry Pi deploy plus runtime publish/subscribe checks
 %   NewFeature  : tests for features merged from seg repo
 %
 % Results are written to tests/results/YYYYMMDD_HHMMSS.json and the most

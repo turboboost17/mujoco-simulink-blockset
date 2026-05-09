@@ -1,8 +1,8 @@
 function [a,b,c,d,e,f] = mj_initbus(xmlPath, camWidths, camHeights)
 % Copyright 2022-2023 The MathWorks, Inc.
-% Lets just be on safe side and run mj_initbus_mex in a separate
-% process. It calls glfw functions which work best in a main thread of
-% a separate process.
+% mj_initbus_mex only reads model metadata and creates buses. Keep it in the
+% MATLAB process so model/plugin loading uses the same environment as the
+% runtime MEX functions.
 %
 % Inputs:
 %   xmlPath    - Path to MuJoCo XML file
@@ -14,11 +14,6 @@ function [a,b,c,d,e,f] = mj_initbus(xmlPath, camWidths, camHeights)
 %   - Vector: applies per-camera (missing entries use MJCF default)
 %   - Values <= 0: use MJCF default offwidth/offheight
 %
-persistent mh
-if ~(isa(mh,'matlab.mex.MexHost') && isvalid(mh))
-    mh = mexhost;
-end
-
 if nargin < 2
     camWidths = 0;  % Use MJCF default
 end
@@ -26,6 +21,24 @@ if nargin < 3
     camHeights = 0;  % Use MJCF default
 end
 
-[a,b,c,d,e,f] = feval(mh, 'mj_initbus_mex', xmlPath, camWidths, camHeights);
-%     [a,b,c,d,e,f] = mj_initbus_mex(xmlPath, camWidths, camHeights);
+xmlPath = resolveXmlPath(xmlPath);
+[a,b,c,d,e,f] = mj_initbus_mex(xmlPath, camWidths, camHeights);
+end
+
+function resolvedPath = resolveXmlPath(xmlPath)
+resolvedPath = char(xmlPath);
+matlabPathMatch = which(resolvedPath);
+if ~isempty(matlabPathMatch)
+    resolvedPath = matlabPathMatch;
+elseif isfile(resolvedPath) && ~isAbsolutePath(resolvedPath)
+    resolvedPath = fullfile(pwd, resolvedPath);
+end
+end
+
+function tf = isAbsolutePath(filePath)
+if ispc
+    tf = ~isempty(regexp(filePath, '^[A-Za-z]:[\/]|^\\', 'once'));
+else
+    tf = startsWith(filePath, filesep);
+end
 end

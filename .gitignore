@@ -21,6 +21,7 @@ examples/build/
 examples/install/
 examples/log/
 src/mj_monitortune_ros/
+tests/src/mj_monitortune_ros/
 build_ros2_model.sh
 examples/build_ros2_model.sh
 *.o
