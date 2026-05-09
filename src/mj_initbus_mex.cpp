@@ -76,55 +76,11 @@ class MexFunction: public matlab::mex::Function
         }
 
         std::shared_ptr<MujocoModelInstance> mi = std::make_shared<MujocoModelInstance>();
-        // Initialize model but do NOT get cami yet (we need to set custom resolutions first)
-        if(mi->initMdl(pathStr, true, false) != 0)
+        if(mi->initMdl(pathStr, false, false) != 0)
         {
             printError("Unable to load file");
         }
-
-        // Apply per-camera resolutions before getting camera interface
-        int numCams = static_cast<int>(mi->offscreenCam.size());
-        bool hasWidths = !camWidths.empty();
-        bool hasHeights = !camHeights.empty();
-        
-        for(int camIndex = 0; camIndex < numCams; camIndex++)
-        {
-            int w = 0;  // 0 means use MJCF default
-            int h = 0;
-            
-            if(hasWidths)
-            {
-                // Scalar: apply to all cameras; Vector: use per-camera value
-                if(camWidths.size() == 1)
-                {
-                    w = camWidths[0];
-                }
-                else if(camIndex < static_cast<int>(camWidths.size()))
-                {
-                    w = camWidths[camIndex];
-                }
-            }
-            
-            if(hasHeights)
-            {
-                // Scalar: apply to all cameras; Vector: use per-camera value
-                if(camHeights.size() == 1)
-                {
-                    h = camHeights[0];
-                }
-                else if(camIndex < static_cast<int>(camHeights.size()))
-                {
-                    h = camHeights[camIndex];
-                }
-            }
-            
-            // Only set if > 0 (values <= 0 mean use MJCF default)
-            if(w > 0) mi->offscreenCam[camIndex]->desiredWidth = w;
-            if(h > 0) mi->offscreenCam[camIndex]->desiredHeight = h;
-        }
-        
-        // Now get camera interface with custom resolutions applied
-        mi->cami = mi->getCameraInterfacePublic();
+        mi->cami = cameraBusInterface(mi->get_m(), camWidths, camHeights);
 
         int outputIndex = 0;
 
@@ -157,7 +113,98 @@ class MexFunction: public matlab::mex::Function
 
         // displayOnMATLAB(stream);   
 
-        glfwTerminate();
+    }
+
+    int cameraOverrideValue(const std::vector<int>& values, int camIndex)
+    {
+        if(values.empty())
+        {
+            return 0;
+        }
+        if(values.size() == 1)
+        {
+            return values[0];
+        }
+        if(camIndex < static_cast<int>(values.size()))
+        {
+            return values[camIndex];
+        }
+        return 0;
+    }
+
+    offscreenSize effectiveCameraSize(const mjModel* model, int camIndex, const std::vector<int>& camWidths, const std::vector<int>& camHeights)
+    {
+        int effWidth = cameraOverrideValue(camWidths, camIndex);
+        int effHeight = cameraOverrideValue(camHeights, camIndex);
+
+        if((effWidth <= 0 || effHeight <= 0) && model != nullptr)
+        {
+            if(camIndex >= 0 && camIndex < model->ncam && model->cam_resolution != nullptr)
+            {
+                int cameraWidth = model->cam_resolution[2*camIndex + 0];
+                int cameraHeight = model->cam_resolution[2*camIndex + 1];
+                if(cameraWidth > 0 && cameraHeight > 0)
+                {
+                    effWidth = cameraWidth;
+                    effHeight = cameraHeight;
+                }
+            }
+        }
+
+        if((effWidth <= 0 || effHeight <= 0) && model != nullptr)
+        {
+            if(model->vis.global.offwidth > 0 && model->vis.global.offheight > 0)
+            {
+                effWidth = model->vis.global.offwidth;
+                effHeight = model->vis.global.offheight;
+            }
+        }
+
+        if(effWidth <= 0 || effHeight <= 0)
+        {
+            effWidth = 640;
+            effHeight = 480;
+        }
+
+        offscreenSize size;
+        size.width = static_cast<unsigned>(effWidth);
+        size.height = static_cast<unsigned>(effHeight);
+        return size;
+    }
+
+    cameraInterface cameraBusInterface(const mjModel* model, const std::vector<int>& camWidths, const std::vector<int>& camHeights)
+    {
+        cameraInterface cami;
+        if(model == nullptr || model->ncam <= 0 || model->name_camadr == nullptr || model->names == nullptr)
+        {
+            return cami;
+        }
+
+        cami.count = static_cast<unsigned>(model->ncam);
+        unsigned long rgbAddr = 0;
+        unsigned long depthAddr = 0;
+        unsigned long segAddr = 0;
+
+        for(int camIndex = 0; camIndex < model->ncam; camIndex++)
+        {
+            char *namePointer = model->names + model->name_camadr[camIndex];
+            cami.names.push_back(std::string(namePointer));
+
+            offscreenSize size = effectiveCameraSize(model, camIndex, camWidths, camHeights);
+            cami.size.push_back(size);
+            cami.rgbAddr.push_back(rgbAddr);
+            cami.depthAddr.push_back(depthAddr);
+            cami.segAddr.push_back(segAddr);
+
+            rgbAddr += 3*size.height*size.width;
+            depthAddr += size.height*size.width;
+            segAddr += 3*size.height*size.width;
+        }
+
+        cami.rgbLength = rgbAddr;
+        cami.depthLength = depthAddr;
+        cami.segLength = segAddr;
+        return cami;
     }
 
     std::string sensorBusGen(sensorInterface si)
@@ -165,6 +212,13 @@ class MexFunction: public matlab::mex::Function
         using namespace matlab::data;
         using namespace matlab::mex;
         using namespace matlab::engine;
+
+        if(si.count == 0)
+        {
+            std::string busStr="mj_bus_sensor_";
+            busStr += std::to_string(si.hash());
+            return emptyBusGen(busStr);
+        }
 
         // struct generation
         StructArray busStruct = af.createStructArray({1}, si.names);
@@ -188,6 +242,13 @@ class MexFunction: public matlab::mex::Function
         using namespace matlab::mex;
         using namespace matlab::engine;
 
+        if(ci.count == 0)
+        {
+            std::string busStr="mj_bus_input_";
+            busStr += std::to_string(ci.hash());
+            return emptyBusGen(busStr);
+        }
+
         // struct generation
         StructArray busStruct = af.createStructArray({1}, ci.names);
         for(unsigned int index=0; index<ci.count; index++)
@@ -208,6 +269,13 @@ class MexFunction: public matlab::mex::Function
         using namespace matlab::data;
         using namespace matlab::mex;
         using namespace matlab::engine;
+
+        if(cami.count == 0)
+        {
+            std::string busStr="mj_bus_rgb_";
+            busStr += std::to_string(cami.hash());
+            return emptyBusGen(busStr);
+        }
 
         // struct generation
         StructArray busStruct = af.createStructArray({1}, cami.names);
@@ -231,6 +299,13 @@ class MexFunction: public matlab::mex::Function
         using namespace matlab::mex;
         using namespace matlab::engine;
 
+        if(cami.count == 0)
+        {
+            std::string busStr="mj_bus_depth_";
+            busStr += std::to_string(cami.hash());
+            return emptyBusGen(busStr);
+        }
+
         // struct generation
         StructArray busStruct = af.createStructArray({1}, cami.names);
         for(unsigned int index=0; index<cami.count; index++)
@@ -253,6 +328,13 @@ class MexFunction: public matlab::mex::Function
         using namespace matlab::mex;
         using namespace matlab::engine;
 
+        if(cami.count == 0)
+        {
+            std::string busStr="mj_bus_segmentation_";
+            busStr += std::to_string(cami.hash());
+            return emptyBusGen(busStr);
+        }
+
         // struct generation
         StructArray busStruct = af.createStructArray({1}, cami.names);
         for(unsigned int index=0; index<cami.count; index++)
@@ -269,7 +351,19 @@ class MexFunction: public matlab::mex::Function
         return busGen(busStr, busStruct);
     }
 
-    std::string busGen(std::string busStr, matlab::data::StructArray busStruct)
+    std::string emptyBusGen(std::string busStr)
+    {
+        using namespace matlab::data;
+        using namespace matlab::engine;
+
+        auto outputStream = std::shared_ptr<matlab::engine::StreamBuffer>();
+        auto errorStream = std::shared_ptr<matlab::engine::StreamBuffer>();
+        std::vector<matlab::data::Array> emptyArgs;
+        auto structVector = matlabPtr->feval(u"struct", 1, emptyArgs, outputStream, errorStream);
+        return busGen(busStr, structVector[0]);
+    }
+
+    std::string busGen(std::string busStr, matlab::data::Array busStruct)
     {
         using namespace matlab::data;
         using namespace matlab::mex;

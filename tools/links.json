@@ -86,9 +86,21 @@
         },
         {
             "name": "mujoco",
+            "arch": "win64",
+            "version": "3.8.0",
+            "downloadLink": "https://github.com/google-deepmind/mujoco/releases/download/3.8.0/mujoco-3.8.0-windows-x86_64.zip"
+        },
+        {
+            "name": "mujoco",
             "arch": "glnxa64",
             "version": "3.7.0",
             "downloadLink": "https://github.com/google-deepmind/mujoco/releases/download/3.7.0/mujoco-3.7.0-linux-x86_64.tar.gz"
+        },
+        {
+            "name": "mujoco",
+            "arch": "glnxa64",
+            "version": "3.8.0",
+            "downloadLink": "https://github.com/google-deepmind/mujoco/releases/download/3.8.0/mujoco-3.8.0-linux-x86_64.tar.gz"
         },
         {
             "name": "mujoco",
@@ -98,9 +110,21 @@
         },
         {
             "name": "mujoco",
+            "arch": "linux-x86_64",
+            "version": "3.8.0",
+            "downloadLink": "https://github.com/google-deepmind/mujoco/releases/download/3.8.0/mujoco-3.8.0-linux-x86_64.tar.gz"
+        },
+        {
+            "name": "mujoco",
             "arch": "linux-aarch64",
             "version": "3.7.0",
             "downloadLink": "https://github.com/google-deepmind/mujoco/releases/download/3.7.0/mujoco-3.7.0-linux-aarch64.tar.gz"
+        },
+        {
+            "name": "mujoco",
+            "arch": "linux-aarch64",
+            "version": "3.8.0",
+            "downloadLink": "https://github.com/google-deepmind/mujoco/releases/download/3.8.0/mujoco-3.8.0-linux-aarch64.tar.gz"
         },
         {
             "name": "glfw",

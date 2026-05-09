@@ -12,7 +12,7 @@ arguments
     target {mustBeMember(target, {'', 'ros2'})} = ''
 end
 
-MJ_VER = '3.7.0';
+MJ_VER = '3.8.0';
 GLFW_VER = '3.3.7';
 urlsList = fileread("tools/links.json");
 blockPath = './blocks/';
@@ -240,7 +240,7 @@ function ensureLinuxLibmujocoSymlink(libDir, mjVer)
 % "libmujoco.so" fails on Linux/WSL/arm64 deploy targets.
 %
 %   libDir : absolute path to ...lib/<arch>/mujoco/lib
-%   mjVer  : MuJoCo version string (e.g. '3.7.0')
+%   mjVer  : MuJoCo version string (e.g. '3.8.0')
 %
 % On Windows we write a tiny shell script next to the archive describing
 % the link the user (or the cross-compile target) must materialize. On

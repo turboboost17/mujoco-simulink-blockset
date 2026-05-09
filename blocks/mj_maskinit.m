@@ -29,6 +29,7 @@
 %  16: CAM_HEIGHT_INDEX     - camHeight (0 = use MJCF) [NEW]
 %
 mjBlk = gcb;
+xmlFile = resolveXmlPath(xmlFile);
 mo = get_param(mjBlk,'MaskObject');
 %% Sensor Bus Config
 blankBusPath = [mjBlk, '/sensorToBus/blankSensorBus'];
@@ -193,4 +194,22 @@ function replacer(blk, oldname, newtype)
         delete_block(oldpath);
         add_block(newtype, oldpath, 'Position', position);
     end
+end
+
+function resolvedPath = resolveXmlPath(xmlPath)
+resolvedPath = char(xmlPath);
+matlabPathMatch = which(resolvedPath);
+if ~isempty(matlabPathMatch)
+    resolvedPath = matlabPathMatch;
+elseif isfile(resolvedPath) && ~isAbsolutePath(resolvedPath)
+    resolvedPath = fullfile(pwd, resolvedPath);
+end
+end
+
+function tf = isAbsolutePath(filePath)
+if ispc
+    tf = ~isempty(regexp(filePath, '^[A-Za-z]:[\/]|^\\', 'once'));
+else
+    tf = startsWith(filePath, filesep);
+end
 end

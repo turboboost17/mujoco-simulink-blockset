@@ -204,7 +204,7 @@ function arch = getRos2TargetArch(buildInfo)
 %
 % Detection order:
 %   1. Explicit mujoco pref 'ros2TargetArch' (user override)
-%   2. SSH to target device via CoderTargetData.BoardParameters.DeviceAddress
+%   2. SSH to target device and map `uname -m`
 %   3. Default: 'linux-x86_64' (WSL2/localhost) or 'linux-aarch64' (remote)
 
     % 1. Check explicit override
@@ -213,7 +213,7 @@ function arch = getRos2TargetArch(buildInfo)
         return
     end
 
-    % 2. Try to detect from target device address
+    % 2. Try to detect from the target device architecture.
     arch = 'linux-x86_64'; % safe default (WSL2 / local Docker)
     try
         modelName = buildInfo.ComponentName;
@@ -225,8 +225,14 @@ function arch = getRos2TargetArch(buildInfo)
                         strcmp(deviceAddr, 'localhost') || ...
                         strcmp(deviceAddr, '127.0.0.1');
         if ~isLocalTarget
-            % Remote device: default to aarch64 (Pi/Jetson are most common)
-            arch = 'linux-aarch64';
+            detectedArch = detectRemoteArch(ctd.BoardParameters);
+            if ~isempty(detectedArch)
+                arch = detectedArch;
+            else
+                % Remote device fallback: Pi/Jetson have historically been
+                % the common remote targets for this blockset.
+                arch = 'linux-aarch64';
+            end
         end
     catch
         % Fall through to default
@@ -241,6 +247,26 @@ function arch = getRos2TargetArch(buildInfo)
                 arch = archs{1};
             end
         end
+    end
+end
+
+function arch = detectRemoteArch(boardParameters)
+    arch = '';
+    try
+        ssh = ros.codertarget.internal.ssh2client( ...
+            boardParameters.DeviceAddress, ...
+            boardParameters.Username, ...
+            boardParameters.Password, ...
+            boardParameters.SSHPort);
+        machine = lower(strtrim(execute(ssh, 'uname -m')));
+    catch
+        return
+    end
+
+    if contains(machine, 'x86_64') || contains(machine, 'amd64')
+        arch = 'linux-x86_64';
+    elseif contains(machine, 'aarch64') || contains(machine, 'arm64')
+        arch = 'linux-aarch64';
     end
 end
 

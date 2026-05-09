@@ -1,9 +1,17 @@
 classdef t_ROS2_WSL < matlab.unittest.TestCase
-    % ROS2 codegen regression (WSL). Uses the mj_monitorTune_ROS model.
-    % Verifies codegen reaches ROS2 package archive generation.
+    % ROS2 codegen regression for the WSL Humble profile.
+    %
+    % Purpose: prove the model can be configured for the WSL ROS2 toolchain
+    % and generate the deployable package archive.
+    %
+    % Execution: local code generation only. The test accepts failures that
+    % happen after the .tgz archive is produced because local Windows colcon
+    % builds are outside this profile's contract.
 
     methods (TestClassSetup)
         function addFixture(testCase)
+            % Shared setup: add profile helpers and skip when ROS2 support is
+            % not installed for this MATLAB environment.
             testCase.applyFixture(MujocoEnvFixture());
             repoRoot = fileparts(fileparts(mfilename('fullpath')));
             addpath(fullfile(repoRoot, 'tools', 'deviceProfiles'));
@@ -16,6 +24,7 @@ classdef t_ROS2_WSL < matlab.unittest.TestCase
     methods (Test, TestTags = {'ROS2WSL'})
 
         function codegenProducesTgz(testCase)
+            % Model/profile configuration: target WSL and keep the build local.
             modelPath = which('mj_monitorTune_ROS.slx');
             testCase.assumeNotEmpty(modelPath, 'mj_monitorTune_ROS.slx not on path');
             [~, modelName] = fileparts(modelPath);
@@ -41,6 +50,8 @@ classdef t_ROS2_WSL < matlab.unittest.TestCase
                 delete(tgz);
             end
 
+            % Archive generation contract: the .tgz is the pass/fail artifact
+            % for WSL even if a later local build step reports an error.
             try
                 rtwbuild(modelName);
             catch me

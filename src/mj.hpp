@@ -68,11 +68,11 @@ class cameraInterface
     // Address offsets for segmentation data in the combined buffer (per camera)
     std::vector<unsigned long> segAddr;
     // Total length of RGB buffer (sum of all cameras)
-    unsigned long rgbLength;
+    unsigned long rgbLength = 0;
     // Total length of depth buffer (sum of all cameras)
-    unsigned long depthLength;
+    unsigned long depthLength = 0;
     // Total length of segmentation buffer (sum of all cameras)
-    unsigned long segLength;
+    unsigned long segLength = 0;
 
     // Returns a hash of the interface for change detection
     std::size_t hash();
