@@ -13,6 +13,8 @@ another with a single command:
    ROS 2 workspace, password if saved).
 3. Optional per-block mask overrides (e.g. `MuJoCo Plant/renderingType`
    on headless targets).
+4. Optional build requirements metadata for the ROS 2 target packages,
+  including target apt/rosdep packages and MuJoCo shared-library artifacts.
 
 ## Switching targets (day-to-day)
 
@@ -39,6 +41,37 @@ mj_applyDeviceProfile("wsl-x64-ros2humble");
 
 ## Adding a new target
 
+The preferred path is to start from a shipped sanitized template rather than
+from a generic Simulink model. The templates configure the ROS 2 hardware
+board, Colcon toolchain, runtime build action, `SupportNonInlinedSFcns=on`,
+target hardware type, ROS device prefs, MuJoCo target architecture, model
+overrides, and build requirements in one place.
+
+```matlab
+cfg = mj_ros2DeviceProfileTemplate("ubuntu-2204-x64-ros2humble");
+cfg.ProfileName = "lab-ubuntu-x64-ros2humble";
+cfg.ROS2DevicePrefs.Hostname = "lab-ubuntu";
+cfg.ROS2DevicePrefs.Username = "robot";
+cfg.ROS2DevicePrefs.Password = "";
+cfg.ROS2DevicePrefs.ROS2Workspace = "/home/robot/ros2_ws/mj_monitorTune_ROS";
+profilePath = mj_createDeviceProfileFromTemplate(cfg);
+```
+
+The generated private `*.mat` profile is ignored by git because it can contain
+hostnames, usernames, and SSH passwords. Commit only `*.template.mat` files.
+
+To refresh the shipped sanitized MAT templates after changing template fields:
+
+```matlab
+mj_exportDeviceProfileTemplates()
+```
+
+The exported templates are not directly applyable; `mj_applyDeviceProfile`
+will reject them until placeholders such as `/home/<user>/ros2_ws/<node>` are
+replaced and a private profile is created.
+
+## Adding a new target by snapshot
+
 1. Configure `ros2device` from the Hardware menu **or** by
    `setpref('ROS_Toolbox_ROS_Device', …, …)` manually. Verify it
    connects.
@@ -60,6 +93,9 @@ mj_applyDeviceProfile("wsl-x64-ros2humble");
 | `mj_saveDeviceProfile`   | Snapshot current model + ROS2 prefs → profile `.mat`            |
 | `mj_applyDeviceProfile`  | Apply profile to a model + prefs (+ optional ws seed)           |
 | `mj_initROS2Workspace`   | Empty `colcon build` to seed `install/setup.bash` on remote     |
+| `mj_ros2DeviceProfileTemplate` | Return fill-in config for a supported ROS 2 hardware shape |
+| `mj_createDeviceProfileFromTemplate` | Build a private profile from a filled template       |
+| `mj_exportDeviceProfileTemplates` | Regenerate commit-safe `*.template.mat` files        |
 
 ## Design
 
@@ -92,7 +128,35 @@ that workflow later; see `Simulink.data.dictionary.create`.
 | `ConfigSet`        | `Simulink.ConfigSet` | Freestanding (detached) copy              |
 | `ConfigSummary`    | struct               | Human-readable highlights                 |
 | `ROS2DevicePrefs`  | struct               | Verbatim `ROS_Toolbox_ROS_Device` prefs   |
+| `MuJoCoPrefs`      | struct               | Hardware-specific MuJoCo prefs, e.g. `ros2TargetArch` |
 | `ModelOverrides`   | struct               | Keyed by `matlab.lang.makeValidName` of block path, each entry has `.Path` (block path relative to model) and `.Values` (struct of MaskName→string) |
+| `BuildRequirements`| struct               | Target setup packages and generated build artifacts |
+
+Template profiles also set `IsTemplate=true` and are written as
+`*.template.mat`. They contain placeholders and are safe to commit.
+
+## ROS 2 target build requirements
+
+Generated ROS 2 packages bundle both `libmujoco.so.<version>` and the
+`libmujoco.so` soname link/copy through `mj_postcodegen_grt`. The hook also
+patches generated CMake install rules so those libraries and MJCF XML files are
+installed with the ROS package.
+
+GLFW and OpenGL remain target system dependencies. The post-codegen hook adds
+these to generated `package.xml` files:
+
+```xml
+<build_depend>libglfw3-dev</build_depend>
+<exec_depend>libglfw3-dev</exec_depend>
+<build_depend>libgl-dev</build_depend>
+<exec_depend>libgl-dev</exec_depend>
+```
+
+On the target, `tools/setup_ros2_target.sh` installs the expected apt packages:
+
+```bash
+sudo apt-get install -y --no-install-recommends libglfw3-dev libgl-dev build-essential cmake
+```
 
 ## Safety
 
@@ -106,11 +170,9 @@ that workflow later; see `Simulink.data.dictionary.create`.
 
 ## Included Profiles
 
-> **Not shipped with the repository.** Device profiles embed SSH
-> credentials (see Safety above) and are excluded by
-> `tools/deviceProfiles/.gitignore`. Create your own with
-> `mj_saveDeviceProfile`; the templates below describe the shapes the
-> maintainer uses locally.
+Private device profiles embed SSH credentials (see Safety above) and are
+excluded by `tools/deviceProfiles/.gitignore`. The repository ships sanitized
+`*.template.mat` files for these supported shapes:
 
 - `raspi-arm64-ros2jazzy.mat` — Raspberry Pi 4 on your LAN, Ubuntu
   24.04 aarch64, ROS 2 Jazzy (`/opt/ros/jazzy`), workspace

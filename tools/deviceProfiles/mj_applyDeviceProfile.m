@@ -8,7 +8,8 @@ function info = mj_applyDeviceProfile(profileName, opts)
 %        <modelDir>/<modelName>_preProfile.mat for rollback.
 %     2. Writes ROS2DevicePrefs into the "ROS_Toolbox_ROS_Device"
 %        preference group so ros2device() returns the profile's target.
-%     3. Applies mask-value overrides from profile.ModelOverrides.
+%     3. Writes hardware-specific MuJoCo prefs such as ros2TargetArch.
+%     4. Applies mask-value overrides from profile.ModelOverrides.
 %
 %   Name-value arguments (OPTS):
 %       Model            char/string, default bdroot
@@ -26,7 +27,8 @@ function info = mj_applyDeviceProfile(profileName, opts)
 %
 %   OUT INFO: struct with fields
 %       ProfilePath, BackupConfigSetPath, AppliedConfigSetName,
-%       AppliedPrefs, AppliedOverrides (cellstr of applied block paths)
+%       AppliedPrefs, AppliedMuJoCoPrefs, AppliedOverrides (cellstr of
+%       applied block paths)
 %
 %   See also mj_saveDeviceProfile, ros2device, attachConfigSet,
 %            setActiveConfigSet.
@@ -64,12 +66,23 @@ else
         'Source "%s" is neither a file nor a folder.', src);
 end
 if ~isfile(profilePath)
-    error('mj_applyDeviceProfile:ProfileMissing', ...
-        'Profile file not found: %s', profilePath);
+    templatePath = fullfile(src, [char(profileName) '.template.mat']);
+    if isfolder(src) && isfile(templatePath)
+        profilePath = templatePath;
+    else
+        error('mj_applyDeviceProfile:ProfileMissing', ...
+            'Profile file not found: %s', profilePath);
+    end
 end
 
 S = load(profilePath, 'profile');
 p = S.profile;
+if isfield(p, 'IsTemplate') && p.IsTemplate
+    error('mj_applyDeviceProfile:TemplateProfile', ...
+        ['%s is a sanitized template, not an applyable device profile. ' ...
+         'Create a filled profile with mj_ros2DeviceProfileTemplate and ' ...
+         'mj_createDeviceProfileFromTemplate first.'], profilePath);
+end
 
 info = struct();
 info.ProfilePath = profilePath;
@@ -79,8 +92,8 @@ modelDir = fileparts(get_param(mdl,'FileName'));
 if isempty(modelDir), modelDir = pwd; end
 backupPath = fullfile(modelDir, [mdl '_preProfile.mat']);
 prevActive = copy(getActiveConfigSet(mdl));
-set_param(prevActive, 'Name', [mdl '_preProfile']); %#ok<NASGU>
-save(backupPath, 'prevActive'); %#ok<USENS>
+set_param(prevActive, 'Name', [mdl '_preProfile']);
+save(backupPath, 'prevActive');
 info.BackupConfigSetPath = backupPath;
 
 newCS = copy(p.ConfigSet);
@@ -111,7 +124,18 @@ if opts.UpdatePrefs && isstruct(p.ROS2DevicePrefs) && ~isempty(fieldnames(p.ROS2
     end
 end
 
-% --- 3) Mask-value overrides ---
+% --- 3) MuJoCo hardware preferences ---
+info.AppliedMuJoCoPrefs = struct();
+if opts.UpdatePrefs && isfield(p, 'MuJoCoPrefs') && isstruct(p.MuJoCoPrefs) && ...
+        ~isempty(fieldnames(p.MuJoCoPrefs))
+    fn = fieldnames(p.MuJoCoPrefs);
+    for i = 1:numel(fn)
+        setpref('mujoco', fn{i}, p.MuJoCoPrefs.(fn{i}));
+    end
+    info.AppliedMuJoCoPrefs = p.MuJoCoPrefs;
+end
+
+% --- 4) Mask-value overrides ---
 info.AppliedOverrides = {};
 if opts.ApplyOverrides && isstruct(p.ModelOverrides)
     blkPaths = fieldnames(p.ModelOverrides);
@@ -138,7 +162,7 @@ if opts.ApplyOverrides && isstruct(p.ModelOverrides)
                     'set_param(''%s'', ''%s'', ...) failed: %s', blk, vfn{k}, ME.message);
             end
         end
-        info.AppliedOverrides{end+1} = blk; %#ok<AGROW>
+        info.AppliedOverrides{end+1} = blk;
     end
 end
 

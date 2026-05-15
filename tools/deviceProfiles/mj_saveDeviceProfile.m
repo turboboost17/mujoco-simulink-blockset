@@ -7,6 +7,9 @@ function profilePath = mj_saveDeviceProfile(profileName, opts)
 %     * the current ROS Toolbox "ROS_Toolbox_ROS_Device" preferences
 %       (ros2device backing store: Hostname, Username, Password,
 %        SSHPort, ROS2Install, ROS2Workspace, ...)
+%     * hardware-specific MuJoCo ROS2 preferences, currently
+%       mujoco.ros2TargetArch when set
+%     * optional build requirements metadata used by template profiles
 %     * optional per-block mask-value overrides (OPTS.ModelOverrides),
 %       e.g. MuJoCo Plant renderingType, camera sample time
 %
@@ -17,6 +20,9 @@ function profilePath = mj_saveDeviceProfile(profileName, opts)
 %       Description     char/string, free-text label
 %       ModelOverrides  struct, fieldnames = full block paths, values = struct
 %                       of MaskName -> string to apply on load
+%       BuildRequirements struct, dependency/build artifact metadata
+%       IsTemplate      logical, default false; true for sanitized templates
+%       TemplateSource  char/string, source template name or file
 %       Destination     char/string, folder to write to; default is this
 %                       function's folder
 %
@@ -29,6 +35,9 @@ arguments
     opts.Model (1,1) string = string(bdroot)
     opts.Description (1,1) string = ""
     opts.ModelOverrides struct = struct()
+    opts.BuildRequirements struct = struct()
+    opts.IsTemplate (1,1) logical = false
+    opts.TemplateSource (1,1) string = ""
     opts.Destination (1,1) string = string(fileparts(mfilename('fullpath')))
 end
 
@@ -43,6 +52,8 @@ profile.Name        = char(profileName);
 profile.Description = char(opts.Description);
 profile.SavedAt     = datetime('now','TimeZone','local');
 profile.SourceModel = mdl;
+profile.IsTemplate  = opts.IsTemplate;
+profile.TemplateSource = char(opts.TemplateSource);
 
 % --- ConfigSet (freestanding copy of active) ---
 active = getActiveConfigSet(mdl);
@@ -100,6 +111,7 @@ profile.ConfigSummary = struct( ...
     'TargetHWDeviceType',get_param(cs,'TargetHWDeviceType'), ...
     'BuildConfiguration',get_param(cs,'BuildConfiguration'), ...
     'Toolchain',         get_param(cs,'Toolchain'), ...
+    'SupportNonInlinedSFcns', get_param(cs,'SupportNonInlinedSFcns'), ...
     'SolverType',        get_param(cs,'SolverType'), ...
     'FixedStep',         get_param(cs,'FixedStep'));
 
@@ -112,8 +124,17 @@ else
         'No ROS_Toolbox_ROS_Device preferences found; profile has empty device info.');
 end
 
+% --- hardware-specific MuJoCo preferences ---
+profile.MuJoCoPrefs = struct();
+if ispref('mujoco', 'ros2TargetArch')
+    profile.MuJoCoPrefs.ros2TargetArch = getpref('mujoco', 'ros2TargetArch');
+end
+
 % --- optional mask-value overrides ---
 profile.ModelOverrides = opts.ModelOverrides;
+
+% --- optional build requirements metadata ---
+profile.BuildRequirements = opts.BuildRequirements;
 
 % --- write ---
 if ~isfolder(opts.Destination)

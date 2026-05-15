@@ -3,3 +3,4 @@
 # Do NOT commit them. Users create their own locally with
 # mj_saveDeviceProfile.
 *.mat
+!*.template.mat
