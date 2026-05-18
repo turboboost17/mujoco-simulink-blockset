@@ -51,6 +51,12 @@ switch templateName
         cfg.ModelConfig.RemoteBuild = true;
         cfg.ModelConfig.ProdHWDeviceType = "ARM Compatible->ARM Cortex-A (64-bit)";
         cfg.ModelConfig.TargetHWDeviceType = "ARM Compatible->ARM Cortex-A (64-bit)";
+        % Headless-by-default Pi profile: prioritize stable runtime on
+        % constrained hardware. Users can re-enable image outputs later.
+        cfg.ModelOverrides.MuJoCoPlant.Values.renderingType = 'None';
+        cfg.ModelOverrides.MuJoCoPlant.Values.rgbOutOption = 'off';
+        cfg.ModelOverrides.MuJoCoPlant.Values.depthOutOption = 'off';
+        cfg.ModelOverrides.MuJoCoPlant.Values.segmentationOutOption = 'off';
 
     case {"wsl-x64-ros2humble", "wsl-x64-humble"}
         cfg.ProfileName = "wsl-x64-ros2humble";

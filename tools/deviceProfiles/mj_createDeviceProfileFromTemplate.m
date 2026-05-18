@@ -22,6 +22,17 @@ function profilePath = mj_createDeviceProfileFromTemplate(cfg, opts)
 %       AllowPlaceholders  logical, default false. Keep false for real
 %                          profiles; true is only for template export.
 %
+%   Common workflow (remote WSL using already-configured ros2device prefs):
+%       mdl = bdroot(gcs);  % currently open model, e.g. "test_build"
+%       cfg = mj_ros2DeviceProfileTemplate("wsl-x64-ros2humble");
+%       cfg.ProfileName = "wsl-x64-ros2humble-remote";
+%       cfg.Model = string(mdl);
+%       cfg.ROS2DevicePrefs = getpref('ROS_Toolbox_ROS_Device');
+%       cfg.ModelConfig.RemoteBuild = true;
+%       cfg.ModelConfig.RuntimeBuildAction = "Build and load";
+%       cfg.ModelConfig.SupportNonInlinedSFcns = "on";
+%       profilePath = mj_createDeviceProfileFromTemplate(cfg);
+%
 %   See also mj_ros2DeviceProfileTemplate, mj_saveDeviceProfile,
 %            mj_applyDeviceProfile.
 

@@ -50,7 +50,10 @@ classdef t_ROS2_Linux < matlab.unittest.TestCase
             profilePath = t_ROS2_Linux.profilePath();
             testCase.assumeTrue(isfile(profilePath), ...
                 sprintf('Linux device profile not found: %s', profilePath));
-            mj_applyDeviceProfile(profileName, Model=modelName, Save=false);
+            % Avoid a second credential challenge from profile seeding SSH
+            % in automated regression runs; deploy/build still validates
+            % end-to-end target access.
+            mj_applyDeviceProfile(profileName, Model=modelName, Save=false, SeedROS2Workspace=false);
 
             set_param(modelName, 'SimulationMode', 'normal');
             set_param(modelName, 'ExtMode', 'off');
