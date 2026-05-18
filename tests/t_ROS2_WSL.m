@@ -65,6 +65,60 @@ classdef t_ROS2_WSL < matlab.unittest.TestCase
 
             testCase.verifyTrue(exist(tgz,'file')==2, ...
                 sprintf('ROS2 package archive not produced: %s', tgz));
+
+            testCase.verifyRefactoredArchiveContents(tgz, lower(modelName));
+        end
+    end
+
+    methods (Access = private)
+        function verifyRefactoredArchiveContents(testCase, tgz, packageName)
+            tmpDir = tempname;
+            mkdir(tmpDir);
+            cleanup = onCleanup(@() rmdir(tmpDir, 's'));
+            untar(tgz, tmpDir);
+
+            pkgDir = fullfile(tmpDir, packageName);
+            testCase.verifyTrue(isfolder(pkgDir), ...
+                sprintf('ROS2 package dir missing from archive: %s', pkgDir));
+
+            cmakeFile = fullfile(pkgDir, 'CMakeLists.txt');
+            testCase.verifyTrue(isfile(cmakeFile), ...
+                sprintf('CMakeLists missing from archive package: %s', cmakeFile));
+            cmakeTxt = fileread(cmakeFile);
+
+            testCase.verifyTrue(contains(cmakeTxt, 'target_link_libraries('), ...
+                'Generated CMakeLists missing target_link_libraries declaration.');
+            hasVersionedToken = contains(cmakeTxt, 'libmujoco.so.');
+            hasStableToken = ~isempty(regexp(cmakeTxt, '(?m)^\s*mujoco\s*$', 'once'));
+            testCase.verifyTrue(hasVersionedToken || hasStableToken, ...
+                ['Generated CMakeLists missing MuJoCo linkage token ' ...
+                 '(expected versioned .so token or plain mujoco).']);
+            testCase.verifyTrue(contains(cmakeTxt, 'glfw'), ...
+                'Generated CMakeLists missing glfw linkage token.');
+            testCase.verifyTrue(contains(cmakeTxt, 'GL'), ...
+                'Generated CMakeLists missing OpenGL linkage token.');
+            testCase.verifyTrue(contains(cmakeTxt, 'ament_target_dependencies('), ...
+                ['Generated CMakeLists is missing ament_target_dependencies; ' ...
+                 'custom ROS2 message dependencies may be broken.']);
+            testCase.verifyTrue(contains(cmakeTxt, 'CMAKE_INSTALL_RPATH'), ...
+                ['Generated CMakeLists missing install RPATH declaration for ' ...
+                 'runtime shared library lookup.']);
+
+            pkgXml = fullfile(pkgDir, 'package.xml');
+            testCase.verifyTrue(isfile(pkgXml), ...
+                sprintf('package.xml missing from archive package: %s', pkgXml));
+
+            testCase.verifyTrue(isfile(fullfile(pkgDir, 'src', 'libmujoco.so')), ...
+                'Archive missing libmujoco.so runtime artifact.');
+            testCase.verifyTrue(~isempty(dir(fullfile(pkgDir, 'src', 'libmujoco.so.*'))), ...
+                'Archive missing versioned libmujoco.so runtime artifact.');
+
+            headerMatches = dir(fullfile(pkgDir, 'include', packageName, ...
+                '**', 'src', 'mujoco', 'mujoco.h'));
+            testCase.verifyGreaterThan(numel(headerMatches), 0, ...
+                'Archive missing staged mujoco/mujoco.h header tree.');
+
+            delete(cleanup);
         end
     end
 end

@@ -21,6 +21,8 @@ examples/build/
 examples/install/
 examples/log/
 src/mj_monitortune_ros/
+src/mujoco/
+src/test_build/
 tests/src/mj_monitortune_ros/
 build_ros2_model.sh
 examples/build_ros2_model.sh
@@ -31,6 +33,7 @@ references/
 *.dylib
 *.dll
 *.so
+*.so.*
 
 # Default files to ignore from MATLAB
 *.asv
