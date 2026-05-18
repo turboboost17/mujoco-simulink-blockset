@@ -409,9 +409,26 @@ static void mdlStart(SimStruct *S)
         int miIndex = sd.mi.size()-1;
         // mi will not be reduced or reordered, so mutex can be unlocked.
     sd.miInitMutex.unlock(); 
+
+    // Decide camera path upfront. On headless targets (Pi/remote ROS2),
+    // disabling all image outputs should avoid any offscreen GL init work.
+    bool renderRGB = true;
+    bool renderDepth = true;
+    bool renderSeg = true;
+    if (ssGetSFcnParamsCount(S) > SEG_OUT_OPTION_INDEX)
+    {
+        const mxArray *rgbOptMx = ssGetSFcnParam(S, RGB_OUT_OPTION_INDEX);
+        const mxArray *depthOptMx = ssGetSFcnParam(S, DEPTH_OUT_OPTION_INDEX);
+        const mxArray *segOptMx = ssGetSFcnParam(S, SEG_OUT_OPTION_INDEX);
+
+        renderRGB = (mxGetScalar(rgbOptMx) != 0);
+        renderDepth = (mxGetScalar(depthOptMx) != 0);
+        renderSeg = (mxGetScalar(segOptMx) != 0);
+    }
+    bool shouldInitCam = (renderRGB || renderDepth || renderSeg);
     
     // MODEL INIT
-    if(sd.mi[miIndex]->initMdl(file, true, false) != 0)
+        if(sd.mi[miIndex]->initMdl(file, shouldInitCam, false) != 0)
     {
          static std::string initErr = "Unable to load MuJoCo model: " + file;
          ssSetLocalErrorStatus(S, initErr.c_str());
@@ -467,16 +484,9 @@ static void mdlStart(SimStruct *S)
     }
 
     // CONDITIONAL RENDERING FLAGS (from mask parameters)
-    if (ssGetSFcnParamsCount(S) > SEG_OUT_OPTION_INDEX)
-    {
-        const mxArray *rgbOptMx = ssGetSFcnParam(S, RGB_OUT_OPTION_INDEX);
-        const mxArray *depthOptMx = ssGetSFcnParam(S, DEPTH_OUT_OPTION_INDEX);
-        const mxArray *segOptMx = ssGetSFcnParam(S, SEG_OUT_OPTION_INDEX);
-        
-        sd.mi[miIndex]->renderRGB = (mxGetScalar(rgbOptMx) != 0);
-        sd.mi[miIndex]->renderDepth = (mxGetScalar(depthOptMx) != 0);
-        sd.mi[miIndex]->renderSeg = (mxGetScalar(segOptMx) != 0);
-    }
+    sd.mi[miIndex]->renderRGB = renderRGB;
+    sd.mi[miIndex]->renderDepth = renderDepth;
+    sd.mi[miIndex]->renderSeg = renderSeg;
 
     // PER-CAMERA RESOLUTION (from mask parameters)
     // CAM_WIDTH and CAM_HEIGHT can be scalar (apply to all cameras) or vector (per-camera)
