@@ -37,7 +37,6 @@ function info = mj_applyDeviceProfile(profileName, opts)
 %   See also mj_saveDeviceProfile, ros2device, attachConfigSet,
 %            setActiveConfigSet.
 
-%   Copyright 2026 The MathWorks, Inc. (workflow helper)
 
 arguments
     profileName (1,1) string

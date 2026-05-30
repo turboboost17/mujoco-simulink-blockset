@@ -26,7 +26,6 @@ function mj_parser_maskinit(blk, kind)
 %   buses left over from old Plant mask initializations or other Plants
 %   in the same model.
 %
-% Copyright 2022-2026 The MathWorks, Inc.
 
     prefix = sprintf('mj_bus_%s_', kind);
     [busName, busOptions] = resolveInputBus(blk, kind, prefix);

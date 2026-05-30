@@ -36,7 +36,6 @@ function profilePath = mj_createDeviceProfileFromTemplate(cfg, opts)
 %   See also mj_ros2DeviceProfileTemplate, mj_saveDeviceProfile,
 %            mj_applyDeviceProfile.
 
-%   Copyright 2026 The MathWorks, Inc. (workflow helper)
 
 arguments
     cfg (1,1) struct

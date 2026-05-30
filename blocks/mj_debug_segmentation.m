@@ -13,7 +13,6 @@ function mj_debug_segmentation(segmentationData, width, height)
 % 2. Decoding the segmentation IDs based on the RGB values
 % 3. Creating a false color visualization where each unique object has a different color
 %
-% Copyright 2023 The MathWorks, Inc.
 
 % Check if data length matches expected size
 expectedLength = width * height * 3;

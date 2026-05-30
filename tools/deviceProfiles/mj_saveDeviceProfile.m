@@ -28,7 +28,6 @@ function profilePath = mj_saveDeviceProfile(profileName, opts)
 %
 %   See also mj_applyDeviceProfile, ros2device.
 
-%   Copyright 2026 The MathWorks, Inc. (workflow helper)
 
 arguments
     profileName (1,1) string

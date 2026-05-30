@@ -13,7 +13,6 @@ function info = mj_initROS2Workspace(opts)
 %
 %   See also mj_applyDeviceProfile, mj_saveDeviceProfile, ros2device.
 
-%   Copyright 2026 The MathWorks, Inc. (workflow helper)
 
 arguments
     opts.Force (1,1) logical = false

@@ -13,6 +13,8 @@ function [robot, info] = importrobot_xacro_workspace(xacroFile, varargin)
 %       WorkspaceRoot           - Workspace root path
 %       PackageMap              - containers.Map(packageName -> packageDir)
 %       ArgDefaults             - containers.Map or struct of arg defaults
+%
+%
 %       DataFormat              - 'struct' | 'row' | 'column'
 %       MaxNumBodies            - max bodies for codegen workflows
 %       CollisionDecomposition  - false/true/vhacdOptions
@@ -241,7 +243,7 @@ end
 function argDefaults = localCollectArgDefaults(textIn)
 argDefaults = containers.Map('KeyType', 'char', 'ValueType', 'char');
 
-argTags = regexp(textIn, '<xacro:arg\b([^>]*)/?>', 'tokens');
+argTags = regexp(textIn, '<xacro:arg(?=[\s/>])([^>]*)/?>', 'tokens');
 for argTagIdx = 1:numel(argTags)
     attrs = argTags{argTagIdx}{1};
     nameTok = regexp(attrs, 'name\s*=\s*"([^"]+)"', 'tokens', 'once');

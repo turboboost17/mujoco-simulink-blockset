@@ -325,7 +325,7 @@ end
 function [textOut, didInsertSite] = localInsertCamerasAndSites(textIn, urdfFile)
 %localInsertCamerasAndSites Insert camera/site elements into existing MJCF bodies.
 %   Parses the resolved URDF for camera metadata in comments preceding
-%   *_optical_frame links and inserts <camera> elements into the
+%   *_camera_link or _image_link links and inserts <camera> elements into the
 %   corresponding bodies in the compiled MJCF.  Inserts a <site> into
 %   the force_torque_frame body for force/torque sensing.
 textOut = textIn;
@@ -396,14 +396,14 @@ end
 function specs = localParseCameraSpecsFromUrdf(urdfFile)
 %localParseCameraSpecsFromUrdf Extract camera metadata from URDF comments.
 %   Finds comments containing <camera .../> immediately preceding
-%   *_optical_frame link definitions and returns structured specs.
+%   *_camera_link link definitions and returns structured specs.
 urdfText = fileread(urdfFile);
 lines = splitlines(urdfText);
 
 specs = struct('BodyName', {}, 'CameraName', {}, 'Attributes', {});
 
 for i = 1:numel(lines)
-    linkTok = regexp(lines{i}, '<link\s+name="([^"]*optical_frame[^"]*)"\s*/>', 'tokens', 'once');
+    linkTok = regexp(lines{i}, '<link\s+name="([^"]*camera_link[^"]*)"\s*/>', 'tokens', 'once');
     if isempty(linkTok)
         continue
     end
@@ -426,8 +426,8 @@ for i = 1:numel(lines)
         continue
     end
 
-    cameraName = regexprep(bodyName, '_color_optical_frame$', '');
-    cameraName = regexprep(cameraName, '_optical_frame$', '');
+    cameraName = regexprep(bodyName, '_camera_link$', '');
+    cameraName = regexprep(cameraName, '_camera_link$', '');
 
     attrs = localProcessCameraAttrs(cameraAttrs);
 

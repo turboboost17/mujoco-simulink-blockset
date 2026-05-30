@@ -19,7 +19,6 @@ function templatePaths = mj_exportDeviceProfileTemplates(opts)
 %
 %   See also mj_ros2DeviceProfileTemplate, mj_createDeviceProfileFromTemplate.
 
-%   Copyright 2026 The MathWorks, Inc. (workflow helper)
 
 arguments
     opts.TemplateNames (1,:) string = [ ...

@@ -24,7 +24,6 @@ function cfg = mj_ros2DeviceProfileTemplate(templateName)
 %
 %   See also mj_createDeviceProfileFromTemplate, mj_saveDeviceProfile.
 
-%   Copyright 2026 The MathWorks, Inc. (workflow helper)
 
 arguments
     templateName (1,1) string = "remote-x64-humble"
