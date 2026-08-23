@@ -18,7 +18,8 @@ classdef MujocoEnvFixture < matlab.unittest.fixtures.Fixture
             end
             if exist('mj_sfun', 'file') ~= 3
                 error('MujocoEnvFixture:sfunMissing', ...
-                    'mj_sfun MEX not found. Build with cd(''tools''); gmake build');
+                    ['mj_sfun MEX not found. In MATLAB, run ', ...
+                     'cd(''tools''); setupBuild; build']);
             end
         end
 

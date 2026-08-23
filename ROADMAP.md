@@ -5,12 +5,12 @@ render-heavy domain randomization and batch GPU rendering.
 
 ## Current baseline
 
-- **MuJoCo 3.7.0 → 3.8.0 upgrade (2026-05-09)**: bumped `MJ_VER` in
-  `install.m` and added 3.8.0 release assets to `tools/links.json`. Primary
-  compatibility watchpoint is the 3.8 default enablement of `multiccd`, which
-  can change convex contact counts and forces. If contact-sensitive regressions
-  appear, compare with `<flag multiccd="disable"/>` before changing blockset
-  code.
+- **MuJoCo 3.8.0 -> 3.12.0 upgrade (2026-08-23)**: Windows, Linux x86_64,
+  and Linux aarch64 SDKs are pinned to 3.12.0. Required source migrations are
+  the 3.9 `mjtnum.h` -> `mjtype.h` rename and the 3.11 five-argument
+  `mjv_moveCamera` API. Local MEX build, 32 Windows regressions, brick SDF
+  smoke, WSL ROS 2 build/runtime linkage, and aarch64 Python physics/EGL
+  rendering are verified. See the upgrade notes below for behavior watchpoints.
 - **Per-camera render sizing**: `MujocoGUI::initInThread` resolves effective
   offscreen W/H from `desiredWidth/Height`, MJCF camera `resolution`, global
   offscreen size, then `640x480`, and calls `mjr_resizeOffscreen` before
@@ -22,9 +22,9 @@ render-heavy domain randomization and batch GPU rendering.
 - **ROS 2 Pi runtime validation**: `t_ROS2_PiRuntime` was
   verified on the lab Raspberry Pi target using `raspi-arm64-ros2jazzy`,
   normal simulation mode, and `ExtMode='off'`. It builds/deploys the model,
-  launches the deployed node, and requires at least 3 nonconstant
-  `/block_camera` messages plus changing finite `/arm_imu` data, so the test
-  checks liveness and content without brittle exact baselines.
+  launches the deployed node, waits for ROS 2 discovery, and validates active
+  `/block_camera` and `/arm_imu` publishers plus finite runtime data without
+  brittle exact baselines.
 
 ## Verified (green)
 
@@ -58,8 +58,10 @@ environment is present.
   saved value**: documented in tests; force re-init via `bdclose all` in
   `TestMethodSetup` or by touching `xmlFile` (which always triggers init).
 
-1. **MuJoCo 3.8 validation**: rerun Core, Rendering, NewFeature, ROS2WSL,
-  and hardware-gated Pi deploy/runtime after the 3.8 rebuild.
+1. **MuJoCo 3.12 comparison harness**: add quantitative A/B baselines for
+  contact-sensitive brick stacks, `implicitfast` free-body motion, and finite
+  textured primitives. The existing smoke tests prove functionality but do not
+  freeze exact trajectory or pixel baselines.
 2. **Device profile packaging**: keep generated `*.mat` device profiles out
   of git because they can contain lab host/user settings. If public examples
   are needed, add sanitized templates or an export script rather than tracking
@@ -73,9 +75,10 @@ environment is present.
 
 ### Environment / supply chain
 
-- **MuJoCo 3.8.0**: current target. 3.8 enables `multiccd` by default, so
-  contact-sensitive models should be compared with that flag disabled before
-  accepting any dynamics changes as blockset regressions.
+- **MuJoCo 3.12.0**: current target. Keep `multiccd` A/B checks from 3.8;
+  additionally review nonzero `gap`, free-body `implicitfast`, DC motors,
+  custom texture assets, finite textured primitives, and mocap contact/raycast
+  behavior when those features appear in user models.
 - **GLFW 3.4**: optional bump from 3.3.7 (minor API additions, non-breaking).
 
 ### Build artifact policy
@@ -117,19 +120,33 @@ environment is present.
   structural numpy fields inside a tight loop because those force recompilation.
   This fits naturally with the future batch-rendering sidecar above.
 
-## MuJoCo 3.8 Upgrade Notes
+## MuJoCo 3.12 Upgrade Notes
 
-Moving from 3.7.0 to 3.8.0 remained a small release bump for this codebase. The
-current C/OpenGL API usage stayed compatible, and all local MEX targets rebuilt
-cleanly against the 3.8 headers and libraries. The main 3.8 behavior change to
-watch is `multiccd` becoming enabled by default; models with convex contacts may
-see different contact multiplicity and slightly different dynamics. The release
-checklist is:
+Upgrade review covered 3.9.0 through 3.12.0 against this repository's C API and
+MJCF usage:
 
-1. Swap 3.8.0 headers/libs for win64, linux-x86_64, and linux-aarch64.
-2. Update `tools/links.json`, `install.m`, and any version guards.
-3. Regenerate local `tools/win64.mk` with `tools/setupBuild.m`; do not track it.
-4. Rebuild all MEX targets and refresh copied runtime DLL/SO files.
-5. Run Core, Rendering, NewFeature, ROS2WSL, and hardware-gated Pi deploy/runtime.
-6. If contact regressions appear, compare with `multiccd` disabled before
-  changing blockset code.
+| Release | Relevant change | Blockset disposition |
+| --- | --- | --- |
+| 3.9 | `mjtnum.h` renamed to `mjtype.h` | Brick SDF include migrated. |
+| 3.9 | `margin`/`gap` semantics changed | Shipped models use default `gap=0`; no migration required. |
+| 3.10 | Threading API removed; `mj_fullM` changed | APIs are not used by the wrapper. |
+| 3.11 | `mjv_moveCamera` dropped `mjvScene` | Both GUI call sites migrated. |
+| 3.11 | `implicitfast` free-body integration changed | Brick SDF smoke covers finite contact behavior; add quantitative baseline later. |
+| 3.12 | Custom binary textures removed; primitive UVs changed | No custom binary textures; shipped textured plane is infinite and retains origin anchoring. |
+| 3.12 | DC motor semantics, flex contacts, mocap weld groups changed | Features are absent from shipped models; keep as user-model migration checks. |
+| 3.12 | Box-box collision fixes | Rendering/core and brick contact smokes pass; add stack trajectory baseline later. |
+
+Validation completed on 2026-08-23:
+
+1. `install('ros2')` installed 3.12.0 headers and libraries for win64,
+  linux-x86_64, and linux-aarch64.
+2. MATLAB R2025a `setupBuild; build` rebuilt all six MEX targets with MSVC 2022.
+3. `smoke_brick_sdf_plugin` passed native registration, label-map/sample-time,
+  and Simulink `mj_sfun` execution.
+4. `Core`, `Rendering`, and `NewFeature` tags passed 32/32 with no incomplete tests.
+5. Remote WSL/Humble `rtwbuild` passed; the deployed executable resolves
+  `libmujoco.so.3.12.0` and system GLFW after standard runtime staging.
+6. The aarch64 Python target passed MuJoCo 3.12.0 falling-box/contact physics
+  and a nonconstant 64x64 EGL render in an isolated Python 3.12 environment.
+7. The Raspberry Pi/Jazzy `t_ROS2_PiRuntime` regression passed build, deploy,
+  graph discovery, publisher, IMU, and camera checks against the 3.12 runtime.

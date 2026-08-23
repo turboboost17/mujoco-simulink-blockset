@@ -12,7 +12,7 @@ arguments
     target {mustBeMember(target, {'', 'ros2'})} = ''
 end
 
-MJ_VER = '3.8.0';
+MJ_VER = '3.12.0';
 GLFW_VER = '3.3.7';
 urlsList = fileread("tools/links.json");
 blockPath = './blocks/';
@@ -207,9 +207,11 @@ localBuildBrickSdfPlugin();
         disp('Download URL is:');
         disp(downloadLink);
 
+        keepPlaceholder = isfile(fullfile(downloadfolder, '.gitkeep'));
         if isfolder(downloadfolder)
             disp(' ')
-            disp('folder exists already. it will be overwritten');
+            disp('folder exists already. it will be replaced');
+            rmdir(downloadfolder, 's');
         end
 
         [~, ~, ext] = fileparts(downloadLink);
@@ -223,6 +225,12 @@ localBuildBrickSdfPlugin();
         else
             error('mujoco:install:unknownExtension', ...
                 'Unknown extension %s. Unable to extract archive.', ext);
+        end
+        if keepPlaceholder
+            placeholder = fopen(fullfile(downloadfolder, '.gitkeep'), 'w');
+            if placeholder >= 0
+                fclose(placeholder);
+            end
         end
         disp(' ')
         disp(name + " downloaded and extracted to this path:");

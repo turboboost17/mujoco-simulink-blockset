@@ -75,12 +75,23 @@ function makeInfo = localConfigureRos2Build(makeInfo, srcPathAbs)
     end
 
     localStageRos2Library(mjSoPath, srcPathAbs, ctx.mjSoFile);
-    mjSoLinkObj = ['$(START_DIR)/../src/' ctx.mjSoFile];
+    mjSoLinkObj = localNormalizePath(fullfile(srcPathAbs, ctx.mjSoFile));
+    systemLibDir = localRos2SystemLibDir(ctx.arch);
 
-    % Keep GLFW/OpenGL as system library names so the generated node links
-    % against target packages (libglfw3-dev/libgl-dev).
     makeInfo.linkLibsObjs = localUniqueCell([makeInfo.linkLibsObjs, ...
-        {mjSoLinkObj, 'glfw', 'GL'}]);
+        {mjSoLinkObj}]);
+    makeInfo.library = struct( ...
+        'Name', {'glfw', 'GL'}, ...
+        'Location', {systemLibDir, systemLibDir}, ...
+        'Modules', {'', ''});
+end
+
+function libDir = localRos2SystemLibDir(arch)
+    if strcmp(arch, 'linux-aarch64')
+        libDir = '/usr/lib/aarch64-linux-gnu';
+    else
+        libDir = '/usr/lib/x86_64-linux-gnu';
+    end
 end
 
 function ctx = localResolveRos2Context()

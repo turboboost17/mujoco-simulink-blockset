@@ -82,7 +82,8 @@ classdef t_ROS2_PiRuntime < matlab.unittest.TestCase
 
             % ROS graph validation: verify the deployed node identity and
             % expected topics are visible before message-level assertions.
-            ros2Graph = t_ROS2_PiRuntime.captureRos2Graph(device, modelName, launch);
+            ros2Graph = t_ROS2_PiRuntime.waitForRos2Graph( ...
+                device, modelName, launch, 30);
             testCase.verifyTrue(ros2Graph.HasNodeIdentitySignal, sprintf([ ...
                 'Expected deployed ROS2 node identity or active topic ' ...
                 'publishers (%s) not observed in remote ROS graph.\n%s'], ...
@@ -486,6 +487,22 @@ classdef t_ROS2_PiRuntime < matlab.unittest.TestCase
             graph.CameraPublisherCount = t_ROS2_PiRuntime.parsePublisherCount(raw, '__ROS2_TOPIC_INFO_CAMERA__');
             graph.HasNodeIdentitySignal = graph.HasNodeId || ...
                 (graph.ImuPublisherCount >= 1 && graph.CameraPublisherCount >= 1);
+        end
+
+        function graph = waitForRos2Graph(device, modelName, launch, timeoutSeconds)
+            startTime = tic;
+            while true
+                graph = t_ROS2_PiRuntime.captureRos2Graph( ...
+                    device, modelName, launch);
+                graphReady = graph.HasNodeIdentitySignal && ...
+                    graph.HasImuTopic && graph.HasCameraTopic && ...
+                    graph.ImuPublisherCount >= 1 && ...
+                    graph.CameraPublisherCount >= 1;
+                if graphReady || toc(startTime) >= timeoutSeconds
+                    return
+                end
+                pause(0.5);
+            end
         end
 
         function count = parsePublisherCount(rawText, marker)

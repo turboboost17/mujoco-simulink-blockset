@@ -183,7 +183,7 @@ static void mouseMoveCallback(GLFWwindow* window, double x, double y)
     }
 
     auto &gui = sd.mg[activeGuiIndex];
-    mjv_moveCamera(gui->sceneAssetModel->get_m(), action, dx/height, dy/height, &gui->scn, &gui->cam);
+    mjv_moveCamera(gui->sceneAssetModel->get_m(), action, dx/height, dy/height, &gui->cam);
 }
 
 static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
@@ -199,7 +199,7 @@ static void scrollCallback(GLFWwindow *window, double xoffset, double yoffset)
 {
     int activeGuiIndex = getActiveWindowIndex(window);
     auto &gui = sd.mg[activeGuiIndex];
-    mjv_moveCamera(gui->sceneAssetModel->get_m(), mjMOUSE_ZOOM, 0, -0.05*yoffset, &gui->scn, &gui->cam);
+    mjv_moveCamera(gui->sceneAssetModel->get_m(), mjMOUSE_ZOOM, 0, -0.05*yoffset, &gui->cam);
 }
 
 // void glfwCallbackInit()

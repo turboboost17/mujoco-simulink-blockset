@@ -23,7 +23,7 @@ Useful for,
 - ROS&reg; Toolbox&trade; (optional)
 
 MATLAB R2024b or newer is recommended. Install MATLAB with the above products and then proceed to set up MuJoCo blocks.
-- MuJoCo 3.7
+- MuJoCo 3.12.0
 - GLFW 3.3.7 (3.4 optional)
 
 *Note - You will need to rebuild the S-Function when using a source checkout because the repository does not track generated binary files.*

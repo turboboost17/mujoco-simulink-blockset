@@ -21,6 +21,8 @@ function addRos2PackagingArtifacts(buildInfo)
     ctx = resolveRos2PackagingContext(modelName);
     packageLibDir = resolveRos2PackageLibDir(modelName);
 
+    normalizeRos2GeneratedSources(buildInfo, buildDir);
+
     % Normalize link-object metadata so ROS package generation avoids fragile
     % ImportedLibs copy behavior on Windows while still producing linker-safe
     % MuJoCo tokens for both local and remote ROS2 builds.
@@ -42,6 +44,27 @@ function addRos2PackagingArtifacts(buildInfo)
     buildInfo.addNonBuildFiles(normalizeBuildPath(dstMjSoLink), '', 'Copy');
 
     bundleMjcfFiles(buildInfo, buildDir);
+end
+
+function normalizeRos2GeneratedSources(buildInfo, buildDir)
+    generatedSources = {'main.cpp', 'ros2nodeinterface.cpp'};
+    sourceFiles = buildInfo.getSourceFiles(false, false);
+
+    for i = 1:numel(generatedSources)
+        sourceFile = generatedSources{i};
+        if ~any(strcmp(sourceFiles, sourceFile))
+            continue
+        end
+
+        sourcePath = fullfile(buildDir, sourceFile);
+        if ~isfile(sourcePath)
+            error('mujoco:postcodegen:missingGeneratedSource', ...
+                'Expected generated ROS2 source not found: %s', sourcePath);
+        end
+
+        buildInfo.removeSourceFiles(sourceFile);
+        buildInfo.addSourceFiles(sourceFile, buildDir);
+    end
 end
 
 function ctx = resolveRos2PackagingContext(modelName)
@@ -167,10 +190,6 @@ end
 
 function normalizeRos2LinkObjects(buildInfo, mjSoFile, packageLibDir)
     linkObjs = buildInfo.getLinkObjects();
-    if isempty(linkObjs)
-        return
-    end
-
     for i = 1:numel(linkObjs)
         name = char(linkObjs(i).Name);
         isMuJoCo = strcmp(name, mjSoFile) || startsWith(name, 'libmujoco.so.');

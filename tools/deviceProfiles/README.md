@@ -60,7 +60,7 @@ mj_applyDeviceProfile("wsl-x64-ros2humble");
   launch under `xvfb-run`.
 - MuJoCo runtime staging expectations:
   generated ROS package source should contain both a versioned
-  `libmujoco.so.3.8.0` and soname/symlink-compatible `libmujoco.so` copy.
+  `libmujoco.so.3.12.0` and soname/symlink-compatible `libmujoco.so` copy.
   Packaging helpers stage both so remote `colcon build` and runtime linking
   succeed.
 - ROS ProjectTool package layout can produce nested `src/src` paths in some
@@ -140,7 +140,7 @@ codertarget.data.getParameterValue(cs,'ROS.RemoteBuild')
 codertarget.data.getParameterValue(cs,'Runtime.BuildAction')
 ```
 
-For the `libmujoco.so.3.8.0` link issue during remote `colcon build`, verify
+For the `libmujoco.so.3.12.0` link issue during remote `colcon build`, verify
 the generated package source contains both library names:
 
 ```bash
@@ -148,7 +148,7 @@ find src/<package>/src -maxdepth 1 -name 'libmujoco.so*' -print
 ```
 
 Expected files:
-- `libmujoco.so.3.8.0`
+- `libmujoco.so.3.12.0`
 - `libmujoco.so`
 
 Also verify target system deps are installed:

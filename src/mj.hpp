@@ -6,7 +6,7 @@
 // Copyright 2022-2023 The MathWorks, Inc.
 
 #pragma once
-#include "mujoco/mujoco.h"
+#include <mujoco/mujoco.h>
 // #include "glfw3.h"
 #include <GLFW/glfw3.h>
 #include <mutex>
