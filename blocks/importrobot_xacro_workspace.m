@@ -70,7 +70,7 @@ if ~isfile(generatedUrdf)
 end
 
 urdfText = fileread(generatedUrdf);
-urdfText = localResolveFindExpressions(urdfText, packageMap);
+urdfText = localResolveFindExpressionsOutsideComments(urdfText, packageMap);
 urdfText = localResolvePackageUriToAbsolute(urdfText, packageMap);
 
 resolvedUrdfFile = fullfile(tempRoot, 'resolved_importrobot.urdf');
@@ -183,7 +183,7 @@ function outFile = localPreprocessXacroRecursive(srcFile, tempRoot, workspaceRoo
 srcFile = char(java.io.File(srcFile).getCanonicalPath());
 
 raw = fileread(srcFile);
-raw = localResolveFindExpressions(raw, packageMap);
+raw = localResolveFindExpressionsOutsideComments(raw, packageMap);
 rawForParsing = localStripXmlComments(raw);
 
 localArgDefaults = localCollectArgDefaults(rawForParsing);
@@ -193,7 +193,15 @@ raw = localResolveArgExpressions(raw, allArgDefaults, globalArgDefaults, argPoli
 includeTokens = regexp(rawForParsing, '<xacro:include[^>]*\sfilename\s*=\s*"([^"]+)"[^>]*/?>', 'tokens');
 for includeIdx = 1:numel(includeTokens)
     includeExpr = includeTokens{includeIdx}{1};
-    includeResolved = localResolveFindExpressions(includeExpr, packageMap);
+    % Substitute known xacro args/properties (e.g. ${arm}, ${dof}, ${gripper})
+    % used in include paths by the kortex macro pattern, then resolve $(find).
+    includeForPath = localSubstituteKnownProperties(includeExpr, allArgDefaults, globalArgDefaults);
+    includeResolved = localResolveFindExpressions(includeForPath, packageMap);
+    if contains(includeResolved, '${')
+        % Unresolved property reference: defer this include to the xacro
+        % processor (convertXacroToURDF) instead of pre-flattening it.
+        continue
+    end
     includeSrcAbs = localResolvePath(includeResolved, fileparts(srcFile));
     if removeRobotiqGripper && localShouldExcludeXacroInclude(includeSrcAbs)
         includePattern = ['\s*<xacro:include[^>]*filename\s*=\s*"' regexptranslate('escape', includeExpr) '"[^>]*/?>'];
@@ -220,6 +228,55 @@ end
 function textOut = localStripXmlComments(textIn)
 %localStripXmlComments Remove XML comments before regex-based xacro parsing.
 textOut = regexprep(textIn, '<!--.*?-->', '', 'dotall');
+end
+
+function textOut = localResolveFindExpressionsOutsideComments(textIn, packageMap)
+%localResolveFindExpressionsOutsideComments Resolve $(find ...) only outside
+%   XML comments so inactive (commented-out) package references are preserved
+%   verbatim and do not trigger "unable to resolve ROS package" errors.
+[commentStart, commentEnd] = regexp(textIn, '<!--.*?-->');
+textOut = '';
+cursor = 1;
+for i = 1:numel(commentStart)
+    liveSegment = textIn(cursor:commentStart(i) - 1);
+    textOut = [textOut localResolveFindExpressions(liveSegment, packageMap)]; %#ok<AGROW>
+    textOut = [textOut textIn(commentStart(i):commentEnd(i))]; %#ok<AGROW>
+    cursor = commentEnd(i) + 1;
+end
+textOut = [textOut localResolveFindExpressions(textIn(cursor:end), packageMap)];
+end
+
+function exprOut = localSubstituteKnownProperties(exprIn, localArgDefaults, globalArgDefaults)
+%localSubstituteKnownProperties Replace ${name} with known xacro arg values.
+%   Used to resolve property references in include paths (the kortex macro
+%   pattern passes $(arg name) into a matching macro param, so ${name} equals
+%   the arg value).  Local args take precedence over global args.
+exprOut = exprIn;
+if ~contains(exprOut, '${')
+    return
+end
+
+combined = containers.Map('KeyType', 'char', 'ValueType', 'char');
+if ~isempty(globalArgDefaults) && isa(globalArgDefaults, 'containers.Map')
+    gk = keys(globalArgDefaults);
+    for i = 1:numel(gk)
+        combined(gk{i}) = globalArgDefaults(gk{i});
+    end
+end
+if ~isempty(localArgDefaults) && isa(localArgDefaults, 'containers.Map')
+    lk = keys(localArgDefaults);
+    for i = 1:numel(lk)
+        combined(lk{i}) = localArgDefaults(lk{i});
+    end
+end
+
+names = keys(combined);
+for i = 1:numel(names)
+    token = ['${' names{i} '}'];
+    if contains(exprOut, token)
+        exprOut = strrep(exprOut, token, combined(names{i}));
+    end
+end
 end
 
 function tf = localShouldExcludeXacroInclude(includePath)

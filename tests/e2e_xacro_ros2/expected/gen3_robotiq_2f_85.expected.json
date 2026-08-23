@@ -1,0 +1,27 @@
+{
+  "description": "Regression spec for the gen3 + Robotiq 2F-85 + sensors end-to-end conversion. Entities the generated portable MJCF (mujoco_model.xml) must contain.",
+  "robotName": "gen3_robotiq_2f_85",
+  "gripper": "robotiq_2f_85",
+  "attachPrefix": "rq_",
+  "cameras": [
+    "realsense_d405",
+    "realsense_d435i"
+  ],
+  "sites": [
+    "force_torque_site",
+    "imu_site"
+  ],
+  "sensorTypes": [
+    "jointpos",
+    "jointvel",
+    "force",
+    "torque",
+    "framequat",
+    "gyro",
+    "accelerometer"
+  ],
+  "armJointCount": 7,
+  "minGeneralActuators": 9,
+  "minGripperBodies": 30,
+  "rosFingerBodiesExpectedZero": true
+}

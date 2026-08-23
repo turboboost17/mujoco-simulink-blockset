@@ -1,0 +1,7 @@
+{
+  "mjcf": "robotiq_2f_85.xml",
+  "rootBody": "base",
+  "attachPrefix": "rq_",
+  "gripperBaseLink": "robotiq_arg2f_base_link",
+  "description": "Robotiq 2F-85 adaptive gripper. The URDF subtree rooted at gripperBaseLink is stripped and replaced by the self-contained MuJoCo submodel (mjcf + assets/) via MuJoCo attach."
+}

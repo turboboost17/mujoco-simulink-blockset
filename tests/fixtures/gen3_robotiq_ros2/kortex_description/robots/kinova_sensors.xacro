@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <!--
+    Sensor / camera frames consumed by the MuJoCo xacro->MJCF converter
+    (blocks/generate_mujoco_from_xacro_workspace.m).
+
+    Convention expected by the converter:
+      * Camera frames: a single-line MJCF "<camera .../>" comment (with the
+        resolution expressed in MuJoCo "width height" pixels) is placed
+        immediately before a self-closing "*_camera_link" or "*_image_link"
+        link.  The converter inserts a <camera> element into the matching
+        MuJoCo body.  "*_image_link" is treated identically to "*_camera_link"
+        and is intended for non-camera imagers (e.g. profile scanners).
+      * imu_frame / force_torque_frame become MuJoCo bodies that receive an
+        IMU / force-torque <site> plus the associated sensors.
+
+    The force_torque_frame is inserted into the kinematic chain between the arm
+    flange and the gripper so the gripper wrench is registered through it.
+  -->
+  <xacro:macro name="load_sensors" params="prefix wrist_parent base_parent">
+
+    <!-- Force/torque frame between the arm flange and the gripper mount. -->
+    <link name="${prefix}force_torque_frame"/>
+    <joint name="${prefix}force_torque_frame_joint" type="fixed">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <parent link="${wrist_parent}"/>
+      <child link="${prefix}force_torque_frame"/>
+    </joint>
+
+    <!-- IMU frame at the wrist flange. -->
+    <link name="${prefix}imu_frame"/>
+    <joint name="${prefix}imu_frame_joint" type="fixed">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <parent link="${prefix}force_torque_frame"/>
+      <child link="${prefix}imu_frame"/>
+    </joint>
+
+    <!-- Wrist-mounted Intel RealSense D405 (eye-in-hand camera). -->
+    <!-- <camera resolution="1280 720" fovy="58"/> -->
+    <link name="${prefix}realsense_d405_camera_link"/>
+    <joint name="${prefix}realsense_d405_camera_joint" type="fixed">
+      <origin xyz="0.04 0 0.03" rpy="0 0 0"/>
+      <parent link="${prefix}force_torque_frame"/>
+      <child link="${prefix}realsense_d405_camera_link"/>
+    </joint>
+
+    <!-- Base-mounted Intel RealSense D435i (image_link: non-camera imager path). -->
+    <!-- <camera resolution="1920 1080" fovy="69"/> -->
+    <link name="${prefix}realsense_d435i_image_link"/>
+    <joint name="${prefix}realsense_d435i_image_joint" type="fixed">
+      <origin xyz="0.15 0 0.6" rpy="0 0.6 0"/>
+      <parent link="${base_parent}"/>
+      <child link="${prefix}realsense_d435i_image_link"/>
+    </joint>
+
+  </xacro:macro>
+</robot>

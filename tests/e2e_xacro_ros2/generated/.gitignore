@@ -1,0 +1,5 @@
+# Generated MuJoCo artifacts from a manual converter run.
+# These are reproducible outputs of generate_mujoco_from_xacro_workspace
+# and must not be committed.
+*
+!.gitignore
