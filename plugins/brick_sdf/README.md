@@ -32,6 +32,13 @@ result = smoke_brick_sdf_plugin;
 
 The smoke helper rebuilds the plugin, runs the native MuJoCo loader executable, checks `mj_sampletime` and `mj_labelmap_mex`, then runs a temporary no-render Simulink model around `mj_sfun`.
 
+On Windows, rebuild the plugin before running any MuJoCo MEX file or model in
+the current MATLAB process. Windows keeps a loaded plugin DLL locked, and MuJoCo
+does not permit a replacement module to register the same plugin name again.
+`build_brick_sdf_plugin` therefore raises `brickSdf:pluginInUse` instead of
+renaming and replacing a loaded DLL. Restart MATLAB before rebuilding, then run
+the smoke test once in the fresh process.
+
 Public examples:
 
 - `examples/brick_sdf_2x4.xml` keeps the release smoke case small and reproducible.

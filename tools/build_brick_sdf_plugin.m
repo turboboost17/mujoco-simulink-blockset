@@ -158,13 +158,13 @@ try
     copyfile(srcFile, destFile, 'f');
 catch firstError
     if isfile(destFile)
-        oldFile = [destFile '.old'];
-        if isfile(oldFile)
-            stamp = char(datetime('now', 'Format', 'yyyyMMdd_HHmmssSSS'));
-            oldFile = [destFile '.old_' stamp];
-        end
-        movefile(destFile, oldFile, 'f');
-        copyfile(srcFile, destFile, 'f');
+        replacementError = MException('brickSdf:pluginInUse', ...
+            ['Cannot safely replace the installed MuJoCo plugin: %s\n' ...
+             'The plugin may already be loaded by a MEX file. Restart MATLAB, ' ...
+             'then rebuild before running any MuJoCo MEX or Simulink model.'], ...
+            destFile);
+        replacementError = addCause(replacementError, firstError);
+        throw(replacementError);
     else
         rethrow(firstError);
     end
