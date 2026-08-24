@@ -41,6 +41,10 @@ classdef t_ROS2_WSL < matlab.unittest.TestCase
             cs = getActiveConfigSet(modelName);
             codertarget.data.setParameterValue(cs, 'Runtime.BuildAction', 'Build and load');
             codertarget.data.setParameterValue(cs, 'ROS.RemoteBuild', false);
+            % The contract ends at the deployable archive. GenCodeOnly also
+            % skips ROSProjectBuilder's R2025a check that rejects a normal
+            % Visual Studio %USERPROFILE%/source directory.
+            set_param(cs, 'GenCodeOnly', 'on');
 
             origDir = pwd;
             dirCleanup = onCleanup(@() cd(origDir));
