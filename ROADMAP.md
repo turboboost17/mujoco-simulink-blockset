@@ -3,6 +3,13 @@
 Tracking current release status, remaining gaps, and upcoming work for
 render-heavy domain randomization and batch GPU rendering.
 
+## Release Versioning
+
+Git release tags use `M.m.p.r`: `M.m.p` is the bundled MuJoCo version and
+`r` is the blockset subrelease. The initial MuJoCo 3.12.0 blockset release is
+`3.12.0.0`. Runtime download selection remains controlled by `MJ_VER` in
+`install.m`, not by Git tag parsing.
+
 ## Current baseline
 
 - **MuJoCo 3.8.0 -> 3.12.0 upgrade (2026-08-23)**: Windows, Linux x86_64,

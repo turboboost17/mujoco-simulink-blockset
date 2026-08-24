@@ -28,6 +28,15 @@ MATLAB R2024b or newer is recommended. Install MATLAB with the above products an
 
 *Note - You will need to rebuild the S-Function when using a source checkout because the repository does not track generated binary files.*
 
+## Release Tags
+
+Release tags use `M.m.p.r`, where `M.m.p` is the bundled MuJoCo runtime
+version and `r` is the blockset subrelease for that same runtime. For example,
+`3.12.0.0` is the first blockset release built on MuJoCo 3.12.0, while
+`3.12.0.1` would be a blockset-only patch without changing MuJoCo. These are
+Git release identifiers; `install.m` remains the source of truth for the
+runtime version it downloads.
+
 For source checkouts, `install` now also attempts to build and install the bundled parametric brick SDF plugin into the active MuJoCo runtime. If a C++ toolchain is not configured yet, `install` warns and you can finish that step later with `mex -setup c++` followed by `build_brick_sdf_plugin`.
 
 ### Simulink Blockset for MuJoCo
