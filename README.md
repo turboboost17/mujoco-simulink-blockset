@@ -37,6 +37,12 @@ version and `r` is the blockset subrelease for that same runtime. For example,
 Git release identifiers; `install.m` remains the source of truth for the
 runtime version it downloads.
 
+Dependent projects can query and enforce the release from MATLAB:
+`v = mujocoBlocksetVersion()` returns the release tag, the MuJoCo runtime
+version and the blockset root, and `mujocoBlocksetVersion('3.12.0.0')` errors
+with `mujoco:blockset:VersionTooOld` when this checkout is older. Bump the
+release string in `tools/mujocoBlocksetVersion.m` with each release tag.
+
 For source checkouts, `install` now also attempts to build and install the bundled parametric brick SDF plugin into the active MuJoCo runtime. If a C++ toolchain is not configured yet, `install` warns and you can finish that step later with `mex -setup c++` followed by `build_brick_sdf_plugin`.
 
 ### Simulink Blockset for MuJoCo
