@@ -123,12 +123,13 @@ function xmlFiles = bundleMjcfFiles(buildInfo, buildDir)
 end
 
 function buildDir = getCodegenBuildDir(modelName)
-    buildDirName = [modelName '_ert_rtw'];
-    [~, currentDirName] = fileparts(pwd);
-    if strcmp(currentDirName, buildDirName)
-        buildDir = pwd;
+    buildLocation = RTW.getBuildDir(modelName);
+    referenceBuildDir = fullfile(buildLocation.CodeGenFolder, ...
+        buildLocation.ModelRefRelativeBuildDir);
+    if strcmp(pwd, referenceBuildDir)
+        buildDir = referenceBuildDir;
     else
-        buildDir = fullfile(pwd, buildDirName);
+        buildDir = buildLocation.BuildDirectory;
     end
 end
 
