@@ -37,7 +37,7 @@ end
 
 function tf = isAbsolutePath(filePath)
 if ispc
-    tf = ~isempty(regexp(filePath, '^[A-Za-z]:[\/]|^\\', 'once'));
+    tf = ~isempty(regexp(filePath, '^[A-Za-z]:[\\/]|^\\', 'once'));
 else
     tf = startsWith(filePath, filesep);
 end
