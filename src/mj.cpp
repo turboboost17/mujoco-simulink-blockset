@@ -281,13 +281,33 @@ controlInterface MujocoModelInstance::getControlInterface()
 {
     controlInterface ci;
     ci.count = m->nu;
-    
-    std::vector<std::string> names;
-    for (unsigned index = 0; index < ci.count; index++)
+
+    // One name per control (nu), not per actuator (nactuator): a multi-input actuator such as
+    // <orientation input="quat"> takes several controls, named <actuator>_<input>
+    std::vector<std::string> names(ci.count);
+    for (int act = 0; act < m->nactuator; act++)
     {
-        char *namePointer = m->names + m->name_actuatoradr[index];
-        std::string str(namePointer);
-        names.push_back(str);
+        std::string actName(m->names + m->name_actuatoradr[act]);
+        int ctrlAdr = m->actuator_ctrladr[act];
+        int ctrlNum = m->actuator_ctrlnum[act];
+        for (int input = 0; input < ctrlNum; input++)
+        {
+            if (ctrlNum == 1)
+            {
+                names[ctrlAdr + input] = actName;
+                continue;
+            }
+            const char *inputName = mj_actuatorInputName(m, act, input);
+            std::string suffix = (inputName && inputName[0]) ? inputName : std::to_string(input);
+            for (char &ch : suffix)
+            {
+                if (!std::isalnum(static_cast<unsigned char>(ch)))
+                {
+                    ch = '_';
+                }
+            }
+            names[ctrlAdr + input] = actName + "_" + suffix;
+        }
     }
     ci.names = names;
     return ci;

@@ -11,7 +11,7 @@ function v = mujocoBlocksetVersion(minRelease)
 %   this from their startup check.
 
 % Bump with each release tag; the first three fields follow MJ_VER in install.m.
-release = '3.12.0.0';
+release = '3.12.0.1';
 
 root = fileparts(fileparts(mfilename('fullpath')));
 v = struct('Release', release, 'MuJoCo', localMuJoCoVersion(root), 'Root', root);

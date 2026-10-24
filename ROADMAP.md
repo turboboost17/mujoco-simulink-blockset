@@ -85,7 +85,16 @@ environment is present.
 - **MuJoCo 3.12.0**: current target. Keep `multiccd` A/B checks from 3.8;
   additionally review nonzero `gap`, free-body `implicitfast`, DC motors,
   custom texture assets, finite textured primitives, and mocap contact/raycast
-  behavior when those features appear in user models.
+  behavior when those features appear in user models. Since 3.12.0.1 the
+  control bus has one element per control (`nu`), so multi-input actuators
+  such as `<orientation input="quat">` get `<actuator>_<input>` elements.
+- **MuJoCo 3.17**: reviewed 2026-10-24 as a low-impact fast forward. Its
+  breaking changes (`mjs_*` spec API, resource provider and decoder renames,
+  `mjNEQDATA`, flex implicit integration, `dampratio` with reflected inertia,
+  solver termination scaling) touch no API the blockset calls. The upgrade is
+  an `MJ_VER` bump in `install.m`, a MEX and plugin rebuild, a ROS 2 target
+  SDK refresh, and new numeric baselines where models use `dampratio` or rely
+  on solver iteration counts.
 - **GLFW 3.4**: optional bump from 3.3.7 (minor API additions, non-breaking).
 
 ### Build artifact policy
