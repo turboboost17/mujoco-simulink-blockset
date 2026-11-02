@@ -12,7 +12,7 @@ arguments
     target {mustBeMember(target, {'', 'ros2'})} = ''
 end
 
-MJ_VER = '3.12.0';
+MJ_VER = '3.17.0';
 GLFW_VER = '3.3.7';
 urlsList = fileread("tools/links.json");
 blockPath = './blocks/';
